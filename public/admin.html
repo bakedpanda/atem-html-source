@@ -560,7 +560,10 @@ function send(msg) {
 connect();
 
 // Stubs — implemented in subsequent tasks
-function renderPreviewIframe(cfg) { /* Task 7 */ }
+function renderPreviewIframe(cfg) {
+  applyConfigToIframe(cfg, document.getElementById('preview-frame'));
+  scaleMonitor('preview-box', 'preview-frame');
+}
 function buildConfigDoc(cfg) {
   if (cfg.mode === 'url' && cfg.url) {
     return null; // use src= instead of srcdoc
@@ -621,6 +624,37 @@ function syncOutputSelect(cfg) { /* Task 12 */ }
 function updateShowIdleBtn(showIdle) { /* Task 9 */ }
 
 window.addEventListener('resize', scaleAllMonitors);
+
+function collectPreviewConfig() {
+  const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'color';
+  return {
+    mode,
+    html: document.getElementById('html-editor').value,
+    customCss: document.getElementById('css-editor').value,
+    url: document.getElementById('url-input').value,
+    imageUrl: document.getElementById('image-url').value,
+    imageFit: document.getElementById('image-fit').value,
+    backgroundColor: document.getElementById('bg-hex').value || '#000000',
+  };
+}
+
+document.getElementById('preview-btn').addEventListener('click', () => {
+  send({ type: 'updatePreview', config: collectPreviewConfig() });
+});
+
+document.getElementById('cut-btn').addEventListener('click', () => {
+  send({ type: 'cut' });
+});
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  send({ type: 'clearPreview' });
+});
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    send({ type: 'updatePreview', config: collectPreviewConfig() });
+  }
+});
 </script>
 </body>
 </html>
