@@ -6,8 +6,13 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-  #bg { position: fixed; inset: 0; z-index: 0; }
-  #content { position: fixed; inset: 0; z-index: 1; overflow: hidden; }
+  #canvas {
+    width: 1920px; height: 1080px;
+    position: absolute; top: 0; left: 0;
+    transform-origin: top left;
+  }
+  #bg { position: absolute; inset: 0; z-index: 0; }
+  #content { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
   #user-css {}
   #url-frame {
     width: 100%; height: 100%;
@@ -26,19 +31,30 @@
 </style>
 </head>
 <body>
-<div id="bg"></div>
-<style id="user-css"></style>
-<div id="content">
-  <iframe id="url-frame" allowtransparency="true"></iframe>
-  <div id="html-content"></div>
-  <div id="image-content"><img id="image-el" src="" alt=""></div>
+<div id="canvas">
+  <div id="bg"></div>
+  <style id="user-css"></style>
+  <div id="content">
+    <iframe id="url-frame" allowtransparency="true"></iframe>
+    <div id="html-content"></div>
+    <div id="image-content"><img id="image-el" src="" alt=""></div>
+  </div>
 </div>
 
 <script>
 const WS_URL = `ws://${location.host}`;
 let ws, reconnectTimer;
 
+function scaleCanvas() {
+  const canvas = document.getElementById('canvas');
+  const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  const x = (window.innerWidth - 1920 * scale) / 2;
+  const y = (window.innerHeight - 1080 * scale) / 2;
+  canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+}
+
 function applyConfig(cfg) {
+  document.body.style.background = cfg.backgroundColor || '#000';
   document.getElementById('bg').style.background = cfg.backgroundColor || '#000';
   document.getElementById('user-css').textContent = cfg.customCss || '';
 
@@ -79,6 +95,8 @@ function connect() {
   ws.onerror = () => ws.close();
 }
 
+scaleCanvas();
+window.addEventListener('resize', scaleCanvas);
 fetch('/api/config').then(r => r.json()).then(applyConfig).catch(() => {});
 connect();
 </script>
