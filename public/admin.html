@@ -5,555 +5,501 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ATEM HTML Source — Admin</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
-  :root {
-    --bg: #0e0e0e; --surface: #1a1a1a; --surface2: #242424; --border: #2e2e2e;
-    --accent: #e8ff47; --text: #f0f0f0; --muted: #888;
-    --danger: #ff4747; --success: #47ff8a;
-    --font: 'IBM Plex Mono', 'Fira Code', monospace;
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+:root {
+  --bg:            #080808;
+  --bg-raised:     #141414;
+  --bg-input:      #1e1e1e;
+  --border:        #282828;
+  --text:          #f0f0f0;
+  --text-muted:    #555;
+  --text-sec:      #888;
+  --accent:        #ffffff;
+  --preview-color: #aaaaaa;
+  --program-color: #ff4444;
+  --dot-live:      #47ff8a;
+  --danger:        #ff4444;
+  --font: 'IBM Plex Mono', 'Fira Code', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 12px; min-height: 100vh; }
+
+/* ── Header ─────────────────────────────────────── */
+.app-header {
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px;
+  position: sticky; top: 0; z-index: 50;
+}
+.logo { color: var(--accent); letter-spacing: 0.08em; font-weight: 600; }
+.logo span { color: var(--text-muted); font-weight: 400; }
+.conn-status { display: flex; align-items: center; gap: 6px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); display: inline-block; transition: background 0.3s; }
+.status-dot.live { background: var(--dot-live); box-shadow: 0 0 5px var(--dot-live); }
+#ws-label { color: var(--text-muted); font-size: 10px; }
+
+/* ── Panel ──────────────────────────────────────── */
+.panel {
+  max-width: 900px;
+  margin: 0 auto;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  min-height: calc(100vh - 41px);
+}
+
+/* ── Bus row ────────────────────────────────────── */
+.bus-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 1fr;
+  border-bottom: 1px solid var(--border);
+  background: #0e0e0e;
+}
+.bus-monitor { padding: 10px; min-width: 0; }
+.bus-label {
+  font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+  margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+}
+.badge { font-size: 8px; padding: 1px 5px; border-radius: 2px; }
+.preview-label { color: var(--preview-color); }
+.preview-label .badge { background: #1e1e1e; color: var(--preview-color); }
+.program-label { color: var(--program-color); }
+.program-label .badge { background: #2a0808; color: var(--program-color); }
+
+.monitor-box {
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.preview-screen { border: 1px solid #333; }
+.program-screen { border: 1px solid #ff444433; }
+
+.monitor-box iframe {
+  position: absolute; top: 0; left: 0;
+  width: 1920px; height: 1080px;
+  border: none;
+  transform-origin: top left;
+  pointer-events: none;
+}
+.monitor-offline {
+  display: none;
+  position: absolute; inset: 0; z-index: 10;
+  background: rgba(0,0,0,0.8);
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 6px;
+  color: var(--text-muted); font-size: 10px; letter-spacing: 0.08em;
+}
+.monitor-offline .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+.monitor-box.offline .monitor-offline { display: flex; }
+
+.live-status {
+  margin-top: 5px;
+  background: #111; border: 1px solid var(--border);
+  border-radius: 3px; padding: 3px 7px;
+  font-size: 9px; display: flex; align-items: center; gap: 5px; overflow: hidden;
+}
+.live-badge { font-size: 8px; font-weight: 700; letter-spacing: 0.1em; color: var(--program-color); flex-shrink: 0; }
+.live-content { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Cut column ─────────────────────────────────── */
+.cut-col {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px;
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  background: var(--bg); padding: 10px 8px;
+}
+.cut-btn {
+  background: var(--accent); color: #000; border: none; border-radius: 4px;
+  font-family: var(--font); font-size: 13px; font-weight: 700; letter-spacing: 0.12em;
+  padding: 10px 0; width: 100%; text-align: center; cursor: pointer;
+}
+.cut-btn:active { opacity: 0.85; }
+.preview-send-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 4px; font-family: var(--font); font-size: 9px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 6px 0; width: 100%; text-align: center; cursor: pointer;
+}
+.preview-send-btn:hover { border-color: #444; color: #aaa; }
+
+/* ── Editor row ─────────────────────────────────── */
+.editor-row {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+}
+.editor-col {
+  padding: 14px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.controls-col {
+  min-width: 0;
+  display: flex; flex-direction: column;
+  border-top: none;
+}
+
+/* ── Mode tabs ──────────────────────────────────── */
+.tab-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.mode-tabs {
+  display: flex; gap: 2px; background: var(--bg-input);
+  padding: 3px; border-radius: 5px; width: fit-content;
+}
+.mode-tab {
+  padding: 5px 14px; border-radius: 3px; border: none; cursor: pointer;
+  font-family: var(--font); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted); background: transparent;
+}
+.mode-tab.active { background: var(--accent); color: #000; font-weight: 600; }
+.mode-panel { display: none; }
+.mode-panel.active { display: block; }
+
+.clear-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 3px; font-family: var(--font); font-size: 9px;
+  letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 9px; cursor: pointer;
+}
+.clear-btn:hover { border-color: #444; color: #aaa; }
+
+/* ── Editor areas ───────────────────────────────── */
+textarea, input[type=text], input[type=url], input[type=number], select {
+  background: var(--bg-input); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font); font-size: 11px;
+  border-radius: 3px; outline: none;
+}
+textarea:focus, input:focus, select:focus { border-color: #444; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+textarea { resize: vertical; padding: 8px; width: 100%; }
+input[type=text], input[type=url] { padding: 5px 8px; height: 26px; width: 100%; display: block; }
+input[type=number] { padding: 4px; text-align: center; }
+select { padding: 4px 6px; height: 26px; }
+
+#html-editor { min-height: 90px; font-size: 11px; tab-size: 2; line-height: 1.5; }
+#css-editor  { min-height: 44px; font-size: 11px; tab-size: 2; line-height: 1.5; }
+
+.css-section { margin-top: 8px; }
+.field-label {
+  font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-sec); margin-bottom: 5px; display: block;
+}
+
+/* image fit select */
+#image-fit { width: 100%; margin-top: 6px; font-size: 11px; }
+
+/* ── Controls column ────────────────────────────── */
+.ctrl-section { border-bottom: 1px solid var(--border); }
+.ctrl-section:last-of-type { border-bottom: none; }
+
+.section-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 9px 14px; cursor: pointer;
+  background: transparent; border: none; color: var(--text-sec);
+  font-family: var(--font); font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+  text-align: left;
+}
+.section-toggle:hover { color: #bbb; }
+.chevron { font-size: 10px; color: #444; display: inline-block; transition: transform 0.15s; }
+.ctrl-section.open .chevron { transform: rotate(180deg); }
+.section-body { display: none; padding: 0 14px 12px; }
+.ctrl-section.open .section-body { display: block; }
+
+/* ── Colour controls ────────────────────────────── */
+.color-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.color-swatch-preview {
+  width: 26px; height: 26px; border-radius: 3px; border: 1px solid var(--border);
+  flex-shrink: 0; background: #000;
+}
+.color-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 4px;
+}
+.color-grid-label {
+  font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted); text-align: center; padding: 2px 0;
+}
+.color-grid input[type=number] { width: 100%; font-size: 10px; }
+.color-swatch-row { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.swatch {
+  width: 22px; height: 22px; border-radius: 3px; border: 1px solid #333; cursor: pointer;
+  flex-shrink: 0;
+}
+.swatch.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+.swatch-add {
+  width: 22px; height: 22px; border-radius: 3px; border: 1px dashed #333;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: #333; cursor: pointer; flex-shrink: 0;
+}
+.swatch-add:hover { border-color: #555; color: #555; }
+
+/* ── Presets ────────────────────────────────────── */
+.preset-list { display: flex; flex-direction: column; gap: 3px; }
+.preset-item {
+  display: flex; align-items: center; gap: 5px;
+  background: #111; border: 1px solid var(--border); border-radius: 3px; padding: 4px 7px;
+}
+.preset-icon { font-size: 11px; flex-shrink: 0; }
+.preset-name { flex: 1; font-size: 10px; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-tags { display: flex; gap: 3px; }
+.preset-tag {
+  font-size: 7px; letter-spacing: 0.08em; text-transform: uppercase;
+  background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 2px; padding: 1px 4px; flex-shrink: 0;
+}
+.preset-load {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 3px; font-family: var(--font); font-size: 9px; padding: 2px 7px;
+  cursor: pointer; flex-shrink: 0;
+}
+.preset-load:hover { border-color: #444; }
+.preset-delete { color: #444; font-size: 13px; cursor: pointer; flex-shrink: 0; padding: 0 2px; line-height: 1; }
+.preset-delete:hover { color: var(--danger); }
+.save-preset-btn {
+  background: transparent; border: 1px dashed var(--border); color: var(--text-muted);
+  border-radius: 3px; font-family: var(--font); font-size: 9px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 5px; width: 100%; text-align: center; cursor: pointer; margin-top: 6px;
+}
+.save-preset-btn:hover { border-color: #444; }
+.preset-form {
+  background: #111; border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px; margin-top: 6px; display: none; flex-direction: column; gap: 6px;
+}
+.preset-form.open { display: flex; }
+.preset-form input[type=text] { width: 100%; }
+.check-row { display: flex; align-items: center; gap: 6px; font-size: 9px; color: #888; cursor: pointer; }
+.check-row input { accent-color: var(--accent); cursor: pointer; }
+.form-actions { display: flex; gap: 5px; margin-top: 2px; }
+.btn-confirm {
+  background: var(--accent); color: #000; border: none; border-radius: 3px;
+  font-family: var(--font); font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; padding: 4px 10px; cursor: pointer;
+}
+.btn-cancel {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 3px; font-family: var(--font); font-size: 9px;
+  padding: 4px 8px; cursor: pointer;
+}
+
+/* ── HDMI / System shared buttons ───────────────── */
+.ctrl-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 4px; font-family: var(--font); font-size: 10px;
+  letter-spacing: 0.06em; text-transform: uppercase; padding: 6px;
+  cursor: pointer; width: 100%; text-align: center; margin-top: 6px;
+}
+.ctrl-btn:hover { border-color: #444; color: #aaa; }
+.ctrl-btn.danger { color: var(--danger); border-color: #ff444433; }
+.ctrl-btn.danger:hover { border-color: var(--danger); }
+.sys-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.apply-note { font-size: 9px; color: var(--text-muted); margin-top: 5px; min-height: 13px; }
+
+/* ── Open display link ──────────────────────────── */
+.open-link {
+  display: block; text-align: center; padding: 8px 14px;
+  color: #444; font-size: 10px; cursor: pointer;
+  text-decoration: none; border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+.open-link:hover { color: #888; }
+
+/* ── Utility ────────────────────────────────────── */
+.hide-idle-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 3px; font-family: var(--font); font-size: 9px;
+  letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 8px;
+  cursor: pointer; width: 100%; text-align: center; margin-top: 8px;
+}
+
+/* ── Scrollbar ──────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Responsive ─────────────────────────────────── */
+@media (max-width: 620px) {
+  .bus-row { grid-template-columns: 1fr 90px 1fr; }
+  .editor-row { grid-template-columns: 1fr; }
+  .editor-col { border-right: none; border-bottom: 1px solid var(--border); }
+}
+@media (max-width: 420px) {
+  .bus-row { grid-template-columns: 1fr; }
+  .cut-col {
+    flex-direction: row;
+    border-left: none; border-right: none;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
-  header {
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; z-index: 50;
-  }
-  .logo { font-size: 14px; font-weight: 500; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; }
-  .logo span { color: var(--muted); font-weight: 400; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); display: inline-block; margin-right: 8px; transition: background 0.3s; }
-  .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
-  .ws-status { color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 8px; }
-  .saved-flash { color: var(--success); font-size: 11px; opacity: 0; transition: opacity 0.3s; margin-left: 12px; }
-  .saved-flash.show { opacity: 1; }
-  main { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 57px); }
-  .panel-left { padding: 24px; overflow-y: auto; border-right: 1px solid var(--border); }
-  .panel-right { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-  .section { margin-bottom: 28px; }
-  .section-label {
-    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
-    color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
-  }
-  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .field { margin-bottom: 14px; }
-  label { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; margin-bottom: 6px; }
-  input[type=text], input[type=url], input[type=color], input[type=number], select, textarea {
-    width: 100%; background: var(--surface2); border: 1px solid var(--border);
-    color: var(--text); font-family: var(--font); font-size: 12px;
-    padding: 8px 10px; border-radius: 4px; outline: none; transition: border-color 0.15s;
-  }
-  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-  textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
-  #html-editor { min-height: 200px; font-size: 11px; tab-size: 2; }
-  #css-editor { min-height: 80px; font-size: 11px; }
-  input[type=color] { padding: 3px; height: 36px; cursor: pointer; }
-  input[type=number] { text-align: center; }
-  input[type=number]::-webkit-inner-spin-button,
-  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-  .colour-row { display: grid; grid-template-columns: 28px 1fr 1fr 1fr; gap: 6px; align-items: center; margin-bottom: 6px; }
-  .colour-row-label { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .mode-tabs { display: flex; gap: 2px; background: var(--surface2); padding: 3px; border-radius: 6px; margin-bottom: 16px; }
-  .mode-tab {
-    flex: 1; padding: 7px; text-align: center; border-radius: 4px; cursor: pointer;
-    font-family: var(--font); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
-    border: none; color: var(--muted); background: transparent; transition: all 0.15s;
-  }
-  .mode-tab.active { background: var(--accent); color: #000; font-weight: 500; }
-  .mode-panel { display: none; }
-  .mode-panel.active { display: block; }
-  .btn {
-    width: 100%; padding: 12px; border: none; border-radius: 4px;
-    font-family: var(--font); font-size: 12px; font-weight: 500;
-    letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
-    transition: opacity 0.15s, transform 0.1s;
-  }
-  .btn:hover { opacity: 0.88; }
-  .btn:active { transform: scale(0.98); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  .preview-box { background: #000; border: 1px solid var(--border); border-radius: 4px; aspect-ratio: 16/9; overflow: hidden; position: relative; }
-  .preview-box iframe { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; border: none; transform-origin: top left; }
-  .preview-offline {
-    display: none; position: absolute; inset: 0; z-index: 10;
-    background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
-    flex-direction: column; gap: 8px; color: var(--muted); font-size: 11px; letter-spacing: 0.08em;
-  }
-  .preview-offline .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
-  .preview-box.offline .preview-offline { display: flex; }
-  .preview-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
-  .res-badge { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.7); color: var(--muted); font-size: 9px; padding: 2px 6px; border-radius: 3px; }
-  .launch-link {
-    display: block; text-align: center; padding: 10px; background: var(--surface2);
-    border: 1px solid var(--border); border-radius: 4px; color: var(--muted);
-    text-decoration: none; font-size: 11px; letter-spacing: 0.06em; transition: border-color 0.15s;
-  }
-  .launch-link:hover { border-color: var(--accent); color: var(--accent); }
-  .apply-note { font-size: 10px; color: var(--muted); margin-top: 6px; min-height: 14px; }
-  select option { background: var(--surface2); }
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .cut-btn, .preview-send-btn { flex: 1; }
+}
 </style>
 </head>
 <body>
 
-<header>
+<header class="app-header">
   <div class="logo">ATEM <span>/ HTML Source</span></div>
-  <div class="ws-status">
+  <div class="conn-status">
     <span class="status-dot" id="dot"></span>
-    <span id="ws-label">connecting...</span>
-    <span class="saved-flash" id="saved">SAVED</span>
+    <span id="ws-label">connecting…</span>
   </div>
 </header>
 
-<main>
-  <div class="panel-left">
+<div class="panel">
 
-    <div class="section">
-      <div class="section-label">Output mode</div>
-      <div class="mode-tabs">
-        <button class="mode-tab active" data-mode="html">HTML</button>
-        <button class="mode-tab" data-mode="url">URL</button>
-        <button class="mode-tab" data-mode="image">Image</button>
-        <button class="mode-tab" data-mode="color">Colour</button>
+  <!-- Bus row -->
+  <div class="bus-row">
+    <div class="bus-monitor">
+      <div class="bus-label preview-label">Preview <span class="badge">staged</span></div>
+      <div class="monitor-box preview-screen" id="preview-box">
+        <iframe id="preview-frame" allowtransparency="true" sandbox="allow-scripts allow-same-origin"></iframe>
+        <div class="monitor-offline"><div class="dot"></div><div>OFFLINE</div></div>
+      </div>
+    </div>
+
+    <div class="cut-col">
+      <button class="cut-btn" id="cut-btn">CUT</button>
+      <button class="preview-send-btn" id="preview-btn">Preview</button>
+    </div>
+
+    <div class="bus-monitor">
+      <div class="bus-label program-label">Program <span class="badge">live · HDMI</span></div>
+      <div class="monitor-box program-screen" id="program-box">
+        <iframe id="program-frame" allowtransparency="true" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+      <div class="live-status">
+        <span class="live-badge">LIVE</span>
+        <span class="live-content" id="live-content">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor + Controls -->
+  <div class="editor-row">
+    <div class="editor-col">
+      <div class="tab-header">
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-mode="html">HTML</button>
+          <button class="mode-tab" data-mode="url">URL</button>
+          <button class="mode-tab" data-mode="image">Image</button>
+        </div>
+        <button class="clear-btn" id="clear-btn">Clear preview</button>
       </div>
 
       <div class="mode-panel active" id="panel-html">
-        <div class="field">
-          <label>HTML content</label>
-          <textarea id="html-editor" spellcheck="false" placeholder="<h1>Your content</h1>"></textarea>
-        </div>
-        <div class="field">
-          <label>Custom CSS</label>
-          <textarea id="css-editor" spellcheck="false" placeholder="body { background: transparent; display:flex; align-items:center; justify-content:center; height:100vh; }"></textarea>
-        </div>
+        <textarea id="html-editor" spellcheck="false" placeholder="<h1>Your content</h1>"></textarea>
       </div>
-
       <div class="mode-panel" id="panel-url">
-        <div class="field">
-          <label>Page URL</label>
-          <input type="url" id="url-input" placeholder="https://example.com">
-        </div>
+        <input type="url" id="url-input" list="url-history-list" placeholder="https://example.com">
+        <datalist id="url-history-list"></datalist>
       </div>
-
       <div class="mode-panel" id="panel-image">
-        <div class="field">
-          <label>Image URL</label>
-          <input type="url" id="image-url" placeholder="https://...">
-        </div>
-        <div class="field">
-          <label>Fit mode</label>
-          <select id="image-fit">
-            <option value="cover">Cover — fill frame, crop edges</option>
-            <option value="contain">Contain — whole image, background fills gaps</option>
-            <option value="fill">Fill — stretch to frame</option>
-            <option value="none">Actual size — no scaling</option>
-          </select>
-        </div>
+        <input type="url" id="image-url" placeholder="https://example.com/image.jpg">
+        <select id="image-fit">
+          <option value="cover">Cover — fill frame, crop edges</option>
+          <option value="contain">Contain — whole image, background fills gaps</option>
+          <option value="fill">Fill — stretch to frame</option>
+          <option value="none">Actual size — no scaling</option>
+        </select>
       </div>
 
-      <div class="mode-panel" id="panel-color">
-        <p style="color:var(--muted);font-size:11px;padding:4px 0;">Solid background fill. Set the colour below.</p>
+      <div class="css-section">
+        <span class="field-label">Custom CSS</span>
+        <textarea id="css-editor" spellcheck="false" placeholder="body { background: transparent; }"></textarea>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-label">Background colour</div>
-      <div class="field">
-        <label>Key colour (shown behind all content — set to chroma/luma key colour)</label>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-          <input type="color" id="bg-picker" value="#000000" style="width:36px;flex-shrink:0;">
-          <input type="text" id="bg-hex" value="#000000" placeholder="#rrggbb" style="flex:1;">
-        </div>
-        <div class="colour-row">
-          <span class="colour-row-label">RGB</span>
-          <input type="number" id="bg-r" min="0" max="255" value="0" placeholder="R">
-          <input type="number" id="bg-g" min="0" max="255" value="0" placeholder="G">
-          <input type="number" id="bg-b" min="0" max="255" value="0" placeholder="B">
-        </div>
-        <div class="colour-row">
-          <span class="colour-row-label">HSL</span>
-          <input type="number" id="bg-h" min="0" max="360" value="0" placeholder="H">
-          <input type="number" id="bg-s" min="0" max="100" value="0" placeholder="S">
-          <input type="number" id="bg-l" min="0" max="100" value="0" placeholder="L">
+    <div class="controls-col">
+
+      <!-- Presets -->
+      <div class="ctrl-section open" id="section-presets">
+        <button class="section-toggle" data-section="presets">
+          Presets <span class="chevron">▾</span>
+        </button>
+        <div class="section-body">
+          <div class="preset-list" id="preset-list"></div>
+          <button class="save-preset-btn" id="save-preset-btn">+ Save current as preset</button>
+          <div class="preset-form" id="preset-form">
+            <input type="text" id="preset-name" placeholder="Preset name…">
+            <label class="check-row"><input type="checkbox" id="preset-chk-content" checked> Content (HTML / URL / image)</label>
+            <label class="check-row"><input type="checkbox" id="preset-chk-bg"> Background colour</label>
+            <label class="check-row"><input type="checkbox" id="preset-chk-css"> Custom CSS</label>
+            <div class="form-actions">
+              <button class="btn-confirm" id="preset-save-confirm">Save</button>
+              <button class="btn-cancel" id="preset-save-cancel">Cancel</button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch;">
-      <button class="btn btn-primary" id="push-btn">Push to output</button>
-      <button class="btn btn-secondary" id="clear-btn" style="padding:12px 16px;" title="Clear current mode content">✕</button>
-    </div>
+      <!-- Background colour -->
+      <div class="ctrl-section open" id="section-bg">
+        <button class="section-toggle" data-section="bg">
+          Background colour <span class="chevron">▾</span>
+        </button>
+        <div class="section-body">
+          <div class="color-row">
+            <div class="color-swatch-preview" id="bg-swatch"></div>
+            <input type="text" id="bg-hex" placeholder="#000000">
+          </div>
+          <div class="color-grid">
+            <div class="color-grid-label">R</div>
+            <div class="color-grid-label">G</div>
+            <div class="color-grid-label">B</div>
+            <input type="number" id="bg-r" min="0" max="255" value="0">
+            <input type="number" id="bg-g" min="0" max="255" value="0">
+            <input type="number" id="bg-b" min="0" max="255" value="0">
+            <div class="color-grid-label">H</div>
+            <div class="color-grid-label">S</div>
+            <div class="color-grid-label">L</div>
+            <input type="number" id="bg-h" min="0" max="360" value="0">
+            <input type="number" id="bg-s" min="0" max="100" value="0">
+            <input type="number" id="bg-l" min="0" max="100" value="0">
+          </div>
+          <div class="color-swatch-row" id="swatch-row"></div>
+          <button class="hide-idle-btn" id="show-idle-btn">Show web UI URL</button>
+        </div>
+      </div>
 
+      <!-- HDMI output -->
+      <div class="ctrl-section" id="section-hdmi">
+        <button class="section-toggle" data-section="hdmi">
+          HDMI output <span class="chevron">▾</span>
+        </button>
+        <div class="section-body">
+          <select id="output-mode-select" style="width:100%;"></select>
+          <button class="ctrl-btn" id="apply-btn">Apply instantly</button>
+          <div class="apply-note" id="apply-note"></div>
+        </div>
+      </div>
+
+      <!-- System -->
+      <div class="ctrl-section" id="section-system">
+        <button class="section-toggle" data-section="system">
+          System <span class="chevron">▾</span>
+        </button>
+        <div class="section-body">
+          <div class="sys-row">
+            <button class="ctrl-btn" id="reboot-btn">Reboot</button>
+            <button class="ctrl-btn danger" id="shutdown-btn">Shutdown</button>
+          </div>
+          <div class="apply-note" id="system-note"></div>
+        </div>
+      </div>
+
+      <a class="open-link" href="/display" target="_blank">↗ Open display in new tab</a>
+    </div>
   </div>
 
-  <div class="panel-right">
-
-    <div>
-      <div class="preview-label">Live preview</div>
-      <div class="preview-box" id="preview-box">
-        <iframe id="preview-frame" src="/display" scrolling="no"></iframe>
-        <div class="res-badge" id="res-badge">1920×1080</div>
-        <div class="preview-offline">
-          <div class="dot"></div>
-          <div>OFFLINE</div>
-        </div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;">
-      <a class="launch-link" href="/display" target="_blank">↗ Open display in new tab</a>
-      <button class="btn btn-secondary" id="dismiss-idle-btn" title="Hide admin URL from HDMI output" style="padding:10px 14px;font-size:11px;">Hide admin URL</button>
-    </div>
-
-    <div class="section" style="margin-bottom:0;">
-      <div class="section-label">HDMI output</div>
-      <div class="field">
-        <label>Resolution / framerate</label>
-        <select id="output-mode-select"></select>
-      </div>
-      <button class="btn btn-secondary" id="apply-btn">Apply instantly</button>
-      <div class="apply-note" id="apply-note"></div>
-    </div>
-
-    <div class="section" style="margin-bottom:0;">
-      <div class="section-label">System</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-secondary" id="reboot-btn">Reboot</button>
-        <button class="btn btn-secondary" id="shutdown-btn" style="color:var(--danger);border-color:var(--danger);">Shutdown</button>
-      </div>
-      <div class="apply-note" id="system-note"></div>
-    </div>
-
-  </div>
-</main>
+</div>
 
 <script>
-const WS_URL = `ws://${location.host}`;
-let ws, config = {};
-
-// ── Mode table ─────────────────────────────────────────────
-const MODES = [
-  // Progressive
-  { res:'1920x1080', fps:'23.98', i:false, label:'1080p23.98',           g:1, m:32 },
-  { res:'1920x1080', fps:'24',    i:false, label:'1080p24',               g:1, m:32 },
-  { res:'1920x1080', fps:'25',    i:false, label:'1080p25',               g:1, m:33 },
-  { res:'1920x1080', fps:'29.97', i:false, label:'1080p29.97',            g:1, m:34 },
-  { res:'1920x1080', fps:'30',    i:false, label:'1080p30',               g:1, m:34 },
-  { res:'1920x1080', fps:'50',    i:false, label:'1080p50',               g:1, m:31 },
-  { res:'1920x1080', fps:'59.94', i:false, label:'1080p59.94',            g:1, m:16 },
-  { res:'1920x1080', fps:'60',    i:false, label:'1080p60',               g:1, m:16 },
-  { res:'1280x720',  fps:'25',    i:false, label:'720p25',                g:1, m:61 },
-  { res:'1280x720',  fps:'29.97', i:false, label:'720p29.97',             g:1, m:62 },
-  { res:'1280x720',  fps:'50',    i:false, label:'720p50',                g:1, m:19 },
-  { res:'1280x720',  fps:'59.94', i:false, label:'720p59.94',             g:1, m:47 },
-  { res:'1280x720',  fps:'60',    i:false, label:'720p60',                g:1, m:4  },
-  { res:'720x576',   fps:'50',    i:false, label:'576p50 — PAL SD',       g:1, m:18 },
-  { res:'720x480',   fps:'59.94', i:false, label:'480p59.94 — NTSC SD',   g:1, m:3  },
-  // Interlaced
-  { res:'1920x1080', fps:'50',    i:true,  label:'1080i50',               g:1, m:20 },
-  { res:'1920x1080', fps:'59.94', i:true,  label:'1080i59.94 — NTSC',     g:1, m:5  },
-  { res:'1920x1080', fps:'60',    i:true,  label:'1080i60',               g:1, m:5  },
-  { res:'720x576',   fps:'50',    i:true,  label:'576i50 — PAL SD',       g:1, m:17 },
-  { res:'720x480',   fps:'59.94', i:true,  label:'480i59.94 — NTSC SD',   g:1, m:6  },
-];
-
-function buildOutputSelect() {
-  const sel = document.getElementById('output-mode-select');
-  const gProg = document.createElement('optgroup');
-  gProg.label = '— Progressive (apply instantly) —';
-  const gInt = document.createElement('optgroup');
-  gInt.label = '— Interlaced (requires reboot) —';
-  MODES.forEach((m, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = m.label;
-    (m.i ? gInt : gProg).appendChild(opt);
-  });
-  sel.appendChild(gProg);
-  sel.appendChild(gInt);
-}
-
-function syncOutputSelectToConfig(cfg) {
-  const sel = document.getElementById('output-mode-select');
-  const idx = MODES.findIndex(m =>
-    m.res === cfg.resolution &&
-    m.fps === cfg.framerate &&
-    m.i === !!cfg.interlaced
-  );
-  if (idx >= 0) sel.value = idx;
-  updateApplyBtn();
-}
-
-function updateApplyBtn() {
-  const idx = parseInt(document.getElementById('output-mode-select').value);
-  const m = MODES[idx];
-  const btn = document.getElementById('apply-btn');
-  const note = document.getElementById('apply-note');
-  const badge = document.getElementById('res-badge');
-  if (!m) return;
-  if (m.i) {
-    btn.textContent = 'Apply & Reboot';
-    note.textContent = 'Interlaced — Pi will reboot (~45s), kiosk returns automatically';
-  } else {
-    btn.textContent = 'Apply instantly';
-    note.textContent = '';
-  }
-  badge.textContent = m.res.replace('x', '×');
-}
-
-let lastServerMode = null;
-
-// ── WebSocket ──────────────────────────────────────────────
-function connect() {
-  ws = new WebSocket(WS_URL);
-  ws.onopen = () => {
-    document.getElementById('dot').classList.add('live');
-    document.getElementById('ws-label').textContent = 'connected';
-    document.getElementById('preview-box').classList.remove('offline');
-  };
-  ws.onclose = () => {
-    document.getElementById('dot').classList.remove('live');
-    document.getElementById('ws-label').textContent = 'reconnecting...';
-    document.getElementById('preview-box').classList.add('offline');
-    setTimeout(connect, 2000);
-  };
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    if (msg.type === 'config') populateUI(msg.config);
-  };
-}
-
-// ── Populate UI ────────────────────────────────────────────
-function populateUI(cfg) {
-  config = cfg;
-  if (cfg.mode !== lastServerMode) {
-    lastServerMode = cfg.mode;
-    document.querySelectorAll('.mode-tab').forEach(t =>
-      t.classList.toggle('active', t.dataset.mode === cfg.mode));
-    document.querySelectorAll('.mode-panel').forEach(p =>
-      p.classList.toggle('active', p.id === 'panel-' + cfg.mode));
-  }
-  document.getElementById('html-editor').value = cfg.html || '';
-  document.getElementById('css-editor').value = cfg.customCss || '';
-  document.getElementById('url-input').value = cfg.url || '';
-  document.getElementById('image-url').value = cfg.imageUrl || '';
-  document.getElementById('image-fit').value = cfg.imageFit || 'cover';
-  setAllColourFields(cfg.backgroundColor || '#000000');
-  document.getElementById('dismiss-idle-btn').textContent = cfg.showIdle === false ? 'Show admin URL' : 'Hide admin URL';
-  syncOutputSelectToConfig(cfg);
-}
-
-// ── Collect content config (no resolution) ─────────────────
-function collectConfig() {
-  const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'color';
-  return {
-    mode,
-    html: document.getElementById('html-editor').value,
-    customCss: document.getElementById('css-editor').value,
-    url: document.getElementById('url-input').value,
-    imageUrl: document.getElementById('image-url').value,
-    imageFit: document.getElementById('image-fit').value,
-    backgroundColor: document.getElementById('bg-hex').value,
-  };
-}
-
-function pushConfig() {
-  const cfg = collectConfig();
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'update', config: cfg }));
-  } else {
-    fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg) });
-  }
-  flashSaved();
-}
-
-function flashSaved() {
-  const el = document.getElementById('saved');
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1500);
-}
-
-// ── Apply resolution ───────────────────────────────────────
-async function applyResolution() {
-  const idx = parseInt(document.getElementById('output-mode-select').value);
-  const m = MODES[idx];
-  const btn = document.getElementById('apply-btn');
-  const note = document.getElementById('apply-note');
-  btn.disabled = true;
-  btn.textContent = 'Applying...';
-  note.textContent = '';
-
-  try {
-    const r = await fetch('/api/resolution', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resolution: m.res, framerate: m.fps, interlaced: m.i, hdmiGroup: m.g, hdmiMode: m.m })
-    });
-    const data = await r.json();
-    if (data.requiresReboot) {
-      btn.textContent = 'Rebooting...';
-      note.textContent = 'Rebooting — reconnecting in ~45s';
-      await fetch('/api/reboot', { method: 'POST' });
-    } else {
-      btn.textContent = 'Applied ✓';
-      setTimeout(() => { btn.textContent = 'Apply instantly'; btn.disabled = false; }, 2000);
-    }
-  } catch (e) {
-    btn.textContent = 'Error — try again';
-    note.textContent = String(e);
-    btn.disabled = false;
-  }
-}
-
-// ── Events ─────────────────────────────────────────────────
-document.querySelectorAll('.mode-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-' + btn.dataset.mode).classList.add('active');
-  });
-});
-
-function clearMode() {
-  const mode = document.querySelector('.mode-tab.active')?.dataset.mode;
-  if (mode === 'html') {
-    document.getElementById('html-editor').value = '';
-    document.getElementById('css-editor').value = '';
-  } else if (mode === 'url') {
-    document.getElementById('url-input').value = '';
-  } else if (mode === 'image') {
-    document.getElementById('image-url').value = '';
-  }
-  pushConfig();
-}
-
-document.getElementById('dismiss-idle-btn').addEventListener('click', () => {
-  const next = config.showIdle === false;
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'update', config: { showIdle: next } }));
-  } else {
-    fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ showIdle: next }) });
-  }
-});
-
-document.getElementById('push-btn').addEventListener('click', pushConfig);
-document.getElementById('clear-btn').addEventListener('click', clearMode);
-document.getElementById('apply-btn').addEventListener('click', applyResolution);
-document.getElementById('output-mode-select').addEventListener('change', updateApplyBtn);
-
-// ── Colour conversion ──────────────────────────────────────
-function rgbToHex(r, g, b) {
-  return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
-}
-function hexToRgbObj(hex) {
-  return { r: parseInt(hex.slice(1,3),16), g: parseInt(hex.slice(3,5),16), b: parseInt(hex.slice(5,7),16) };
-}
-function rgbToHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r,g,b), min = Math.min(r,g,b);
-  let h = 0, s = 0, l = (max+min)/2;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
-    if (max === r) h = ((g-b)/d + (g<b?6:0))/6;
-    else if (max === g) h = ((b-r)/d + 2)/6;
-    else h = ((r-g)/d + 4)/6;
-  }
-  return { h: Math.round(h*360), s: Math.round(s*100), l: Math.round(l*100) };
-}
-function hslToRgb(h, s, l) {
-  s /= 100; l /= 100;
-  const k = n => (n + h/30) % 12;
-  const a = s * Math.min(l, 1-l);
-  const f = n => Math.round((l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)))) * 255);
-  return { r: f(0), g: f(8), b: f(4) };
-}
-
-function setAllColourFields(hex) {
-  const {r,g,b} = hexToRgbObj(hex);
-  const {h,s,l} = rgbToHsl(r,g,b);
-  document.getElementById('bg-picker').value = hex;
-  document.getElementById('bg-hex').value = hex;
-  document.getElementById('bg-r').value = r;
-  document.getElementById('bg-g').value = g;
-  document.getElementById('bg-b').value = b;
-  document.getElementById('bg-h').value = h;
-  document.getElementById('bg-s').value = s;
-  document.getElementById('bg-l').value = l;
-}
-
-const bgPicker = document.getElementById('bg-picker');
-const bgHex = document.getElementById('bg-hex');
-
-bgPicker.addEventListener('input', () => setAllColourFields(bgPicker.value));
-bgHex.addEventListener('input', () => {
-  let val = bgHex.value.trim();
-  if (/^[0-9a-fA-F]{6}$/.test(val)) val = '#' + val;
-  if (/^#[0-9a-fA-F]{6}$/.test(val)) setAllColourFields(val);
-});
-['bg-r','bg-g','bg-b'].forEach(id => document.getElementById(id).addEventListener('input', () => {
-  const r = Math.min(255, Math.max(0, parseInt(document.getElementById('bg-r').value)||0));
-  const g = Math.min(255, Math.max(0, parseInt(document.getElementById('bg-g').value)||0));
-  const b = Math.min(255, Math.max(0, parseInt(document.getElementById('bg-b').value)||0));
-  const hex = rgbToHex(r,g,b);
-  const {h,s,l} = rgbToHsl(r,g,b);
-  document.getElementById('bg-picker').value = hex;
-  document.getElementById('bg-hex').value = hex;
-  document.getElementById('bg-h').value = h;
-  document.getElementById('bg-s').value = s;
-  document.getElementById('bg-l').value = l;
-}));
-['bg-h','bg-s','bg-l'].forEach(id => document.getElementById(id).addEventListener('input', () => {
-  const h = Math.min(360, Math.max(0, parseInt(document.getElementById('bg-h').value)||0));
-  const s = Math.min(100, Math.max(0, parseInt(document.getElementById('bg-s').value)||0));
-  const l = Math.min(100, Math.max(0, parseInt(document.getElementById('bg-l').value)||0));
-  const {r,g,b} = hslToRgb(h,s,l);
-  const hex = rgbToHex(r,g,b);
-  document.getElementById('bg-picker').value = hex;
-  document.getElementById('bg-hex').value = hex;
-  document.getElementById('bg-r').value = r;
-  document.getElementById('bg-g').value = g;
-  document.getElementById('bg-b').value = b;
-}));
-
-document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') pushConfig();
-});
-
-function scalePreview() {
-  const box = document.querySelector('.preview-box');
-  const frame = document.getElementById('preview-frame');
-  const scale = box.clientWidth / 1920;
-  frame.style.transform = `scale(${scale})`;
-}
-
-async function systemAction(action) {
-  const note = document.getElementById('system-note');
-  const rebootBtn = document.getElementById('reboot-btn');
-  const shutdownBtn = document.getElementById('shutdown-btn');
-  rebootBtn.disabled = true;
-  shutdownBtn.disabled = true;
-  note.textContent = action === 'reboot' ? 'Rebooting — reconnecting in ~45s...' : 'Shutting down...';
-  try {
-    await fetch(`/api/${action}`, { method: 'POST' });
-  } catch {}
-}
-
-document.getElementById('reboot-btn').addEventListener('click', () => {
-  if (confirm('Reboot the Pi?')) systemAction('reboot');
-});
-document.getElementById('shutdown-btn').addEventListener('click', () => {
-  if (confirm('Shut down the Pi?')) systemAction('shutdown');
-});
-
-buildOutputSelect();
-connect();
-scalePreview();
-window.addEventListener('resize', scalePreview);
+// JavaScript added in subsequent tasks
 </script>
 </body>
 </html>
