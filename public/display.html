@@ -5,7 +5,11 @@
 <title>ATEM Display Output</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #111; }
+  #stage {
+    position: absolute;
+    overflow: hidden;
+  }
   #canvas {
     width: 1920px; height: 1080px;
     position: absolute; top: 0; left: 0;
@@ -31,13 +35,15 @@
 </style>
 </head>
 <body>
-<div id="canvas">
-  <div id="bg"></div>
-  <style id="user-css"></style>
-  <div id="content">
-    <iframe id="url-frame" allowtransparency="true"></iframe>
-    <div id="html-content"></div>
-    <div id="image-content"><img id="image-el" src="" alt=""></div>
+<div id="stage">
+  <div id="canvas">
+    <div id="bg"></div>
+    <style id="user-css"></style>
+    <div id="content">
+      <iframe id="url-frame" allowtransparency="true"></iframe>
+      <div id="html-content"></div>
+      <div id="image-content"><img id="image-el" src="" alt=""></div>
+    </div>
   </div>
 </div>
 
@@ -46,11 +52,18 @@ const WS_URL = `ws://${location.host}`;
 let ws, reconnectTimer;
 
 function scaleCanvas() {
-  const canvas = document.getElementById('canvas');
   const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-  const x = (window.innerWidth - 1920 * scale) / 2;
-  const y = (window.innerHeight - 1080 * scale) / 2;
-  canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  const w = Math.round(1920 * scale);
+  const h = Math.round(1080 * scale);
+  const x = Math.round((window.innerWidth - w) / 2);
+  const y = Math.round((window.innerHeight - h) / 2);
+  const stage = document.getElementById('stage');
+  const canvas = document.getElementById('canvas');
+  stage.style.width = w + 'px';
+  stage.style.height = h + 'px';
+  stage.style.left = x + 'px';
+  stage.style.top = y + 'px';
+  canvas.style.transform = `scale(${scale})`;
 }
 
 function applyConfig(cfg) {
