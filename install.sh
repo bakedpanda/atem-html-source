@@ -181,7 +181,7 @@ if [[ -f "${REPO_DIR}/config.json" ]]; then
 else
 tee "${REPO_DIR}/config.json" > /dev/null <<EOF
 {
-  "mode": "color",
+  "mode": "idle",
   "html": "",
   "customCss": "",
   "url": "",

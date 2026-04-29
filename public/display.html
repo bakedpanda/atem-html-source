@@ -108,6 +108,8 @@ function applyConfig(cfg) {
     img.src = cfg.imageUrl;
     img.style.objectFit = cfg.imageFit || 'cover';
     imgDiv.style.display = 'flex';
+  } else if (cfg.mode === 'color') {
+    // background colour only — no idle text
   } else {
     document.getElementById('idle-url').textContent = `${location.protocol}//${location.hostname}:${location.port || 3000}`;
     idleDiv.style.display = 'flex';

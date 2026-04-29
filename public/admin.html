@@ -186,7 +186,10 @@
       </div>
     </div>
 
-    <a class="launch-link" href="/display" target="_blank">↗ Open display in new tab</a>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;">
+      <a class="launch-link" href="/display" target="_blank">↗ Open display in new tab</a>
+      <button class="btn btn-secondary" id="dismiss-idle-btn" title="Clear idle URL from HDMI output" style="padding:10px 14px;font-size:11px;">Dismiss idle</button>
+    </div>
 
     <div class="section" style="margin-bottom:0;">
       <div class="section-label">HDMI output</div>
@@ -405,6 +408,14 @@ function clearMode() {
   }
   pushConfig();
 }
+
+document.getElementById('dismiss-idle-btn').addEventListener('click', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'update', config: { mode: 'color' } }));
+  } else {
+    fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'color' }) });
+  }
+});
 
 document.getElementById('push-btn').addEventListener('click', pushConfig);
 document.getElementById('clear-btn').addEventListener('click', clearMode);
