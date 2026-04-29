@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATEM Display Output</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+  #output-frame {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  #user-css { }
+  #user-content {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+  }
+  #overlay {
+    position: fixed;
+    z-index: 100;
+    pointer-events: none;
+  }
+  #overlay.bottom-left  { bottom: 0; left: 0; }
+  #overlay.bottom-right { bottom: 0; right: 0; }
+  #overlay.top-left     { top: 0; left: 0; }
+  #overlay.top-right    { top: 0; right: 0; }
+  #overlay.center       { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+</style>
+</head>
+<body>
+<div id="output-frame">
+  <style id="user-css"></style>
+  <div id="user-content"></div>
+  <div id="overlay"></div>
+</div>
+
+<script>
+const WS_URL = `ws://${location.host}`;
+let ws;
+let reconnectTimer;
+
+function applyConfig(config) {
+  const frame = document.getElementById('output-frame');
+  const content = document.getElementById('user-content');
+  const cssEl = document.getElementById('user-css');
+  const overlay = document.getElementById('overlay');
+
+  // Background
+  frame.style.background = config.backgroundColor || '#000';
+
+  // Custom CSS
+  cssEl.textContent = config.customCss || '';
+
+  // Content mode
+  content.innerHTML = '';
+  if (config.mode === 'html') {
+    content.innerHTML = config.html || '';
+  } else if (config.mode === 'image' && config.imageUrl) {
+    const img = document.createElement('img');
+    img.src = config.imageUrl;
+    img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+    content.appendChild(img);
+  } else if (config.mode === 'color') {
+    // background color already applied above
+  }
+
+  // Overlay
+  overlay.className = 'overlay ' + (config.overlayPosition || 'bottom-left');
+  if (config.overlayEnabled && config.overlayText) {
+    overlay.style.cssText = config.overlayStyle || '';
+    overlay.textContent = config.overlayText;
+    overlay.style.display = 'block';
+  } else {
+    overlay.style.display = 'none';
+  }
+
+  // Resolution hint — Chromium will be launched at the right res,
+  // but we note it here for reference
+  document.title = `ATEM Output [${config.resolution || '1920x1080'} @ ${config.framerate || '25'}fps]`;
+}
+
+function connect() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'config') applyConfig(msg.config);
+    } catch {}
+  };
+
+  ws.onclose = () => {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+// Initial load via REST in case WS is slow
+fetch('/api/config')
+  .then(r => r.json())
+  .then(applyConfig)
+  .catch(() => {});
+
+connect();
+</script>
+</body>
+</html>

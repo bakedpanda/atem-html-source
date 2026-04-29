@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATEM HTML Source — Admin</title>
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --accent: #e8ff47;
+    --accent-dim: rgba(232,255,71,0.12);
+    --text: #f0f0f0;
+    --muted: #888;
+    --danger: #ff4747;
+    --success: #47ff8a;
+    --font: 'IBM Plex Mono', 'Fira Code', 'Courier New', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .logo {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--muted); font-weight: 400; }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--danger);
+    display: inline-block;
+    margin-right: 8px;
+    transition: background 0.3s;
+  }
+  .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+
+  .ws-status { color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 8px; }
+
+  main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    height: calc(100vh - 57px);
+  }
+
+  .panel-left {
+    padding: 24px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+  }
+
+  .panel-right {
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .section {
+    margin-bottom: 28px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .field { margin-bottom: 14px; }
+
+  label {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  input[type=text], input[type=url], input[type=color], select, textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+  }
+
+  #html-editor {
+    min-height: 200px;
+    font-size: 11px;
+    tab-size: 2;
+  }
+
+  #css-editor { min-height: 100px; font-size: 11px; }
+
+  input[type=color] {
+    padding: 3px;
+    height: 36px;
+    cursor: pointer;
+  }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  .mode-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface2);
+    padding: 3px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+
+  .mode-tab {
+    flex: 1;
+    padding: 7px;
+    text-align: center;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: none;
+    color: var(--muted);
+    background: transparent;
+    transition: all 0.15s;
+  }
+
+  .mode-tab.active {
+    background: var(--accent);
+    color: #000;
+    font-weight: 500;
+  }
+
+  .mode-panel { display: none; }
+  .mode-panel.active { display: block; }
+
+  .push-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-top: 4px;
+  }
+
+  .push-btn:hover { opacity: 0.88; }
+  .push-btn:active { transform: scale(0.98); }
+
+  .push-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+
+  .toggle-label { color: var(--muted); font-size: 11px; letter-spacing: 0.06em; }
+
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    inset: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .slider:before {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    left: 3px; top: 3px;
+    background: var(--muted);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+  .toggle input:checked + .slider { border-color: var(--accent); }
+  .toggle input:checked + .slider:before {
+    transform: translateX(16px);
+    background: var(--accent);
+  }
+
+  .preview-box {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .preview-box iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    transform-origin: top left;
+  }
+
+  .preview-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .res-badge {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.7);
+    color: var(--muted);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.06em;
+  }
+
+  .launch-link {
+    display: block;
+    text-align: center;
+    padding: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    transition: border-color 0.15s;
+  }
+  .launch-link:hover { border-color: var(--accent); color: var(--accent); }
+
+  .info-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent);
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  .info-card code {
+    color: var(--accent);
+    font-size: 10px;
+    display: block;
+    margin-top: 4px;
+  }
+
+  .saved-flash {
+    color: var(--success);
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    margin-left: 12px;
+  }
+  .saved-flash.show { opacity: 1; }
+
+  select option { background: var(--surface2); }
+
+  .overlay-fields { margin-top: 12px; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ATEM <span>/ HTML Source</span></div>
+  <div class="ws-status">
+    <span class="status-dot" id="dot"></span>
+    <span id="ws-label">connecting...</span>
+    <span class="saved-flash" id="saved">SAVED</span>
+  </div>
+</header>
+
+<main>
+  <div class="panel-left">
+
+    <!-- MODE -->
+    <div class="section">
+      <div class="section-label">Output mode</div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="html">HTML</button>
+        <button class="mode-tab" data-mode="image">Image</button>
+        <button class="mode-tab" data-mode="color">Colour</button>
+      </div>
+
+      <!-- HTML MODE -->
+      <div class="mode-panel active" id="panel-html">
+        <div class="field">
+          <label>HTML content</label>
+          <textarea id="html-editor" spellcheck="false" placeholder="<h1>Your content here</h1>"></textarea>
+        </div>
+        <div class="field">
+          <label>Custom CSS (applied to body/page)</label>
+          <textarea id="css-editor" spellcheck="false" placeholder="body { background: #000; display:flex; align-items:center; justify-content:center; height:100vh; }"></textarea>
+        </div>
+      </div>
+
+      <!-- IMAGE MODE -->
+      <div class="mode-panel" id="panel-image">
+        <div class="field">
+          <label>Image URL</label>
+          <input type="url" id="image-url" placeholder="http://... or file path">
+        </div>
+        <div class="field">
+          <label>Custom CSS</label>
+          <textarea id="css-editor-image" spellcheck="false" placeholder="img { object-fit: contain; }"></textarea>
+        </div>
+      </div>
+
+      <!-- COLOUR MODE -->
+      <div class="mode-panel" id="panel-color">
+        <div class="field">
+          <label>Background colour</label>
+          <div class="row">
+            <input type="color" id="bg-color-picker" value="#000000">
+            <input type="text" id="bg-color-hex" value="#000000" placeholder="#000000">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OVERLAY -->
+    <div class="section">
+      <div class="section-label">Lower third / Overlay</div>
+      <div class="toggle-row">
+        <span class="toggle-label">Enable overlay</span>
+        <label class="toggle">
+          <input type="checkbox" id="overlay-enabled">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="overlay-fields" id="overlay-fields" style="display:none;">
+        <div class="field">
+          <label>Overlay text</label>
+          <input type="text" id="overlay-text" placeholder="Speaker name / lower third text">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Position</label>
+            <select id="overlay-pos">
+              <option value="bottom-left">Bottom left</option>
+              <option value="bottom-right">Bottom right</option>
+              <option value="top-left">Top left</option>
+              <option value="top-right">Top right</option>
+              <option value="center">Centre</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Overlay style (inline CSS)</label>
+          <input type="text" id="overlay-style" placeholder="color:white;font-size:36px;...">
+        </div>
+      </div>
+    </div>
+
+    <button class="push-btn" id="push-btn">Push to output</button>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel-right">
+
+    <!-- PREVIEW -->
+    <div>
+      <div class="preview-label">Live preview</div>
+      <div class="preview-box">
+        <iframe id="preview-frame" src="/display" scrolling="no"></iframe>
+        <div class="res-badge" id="res-badge">1920×1080</div>
+      </div>
+    </div>
+
+    <a class="launch-link" href="/display" target="_blank">↗ Open display in new tab</a>
+
+    <!-- OUTPUT SETTINGS -->
+    <div class="section" style="margin-bottom:0;">
+      <div class="section-label">Output settings</div>
+      <div class="field">
+        <label>Resolution</label>
+        <select id="resolution">
+          <option value="1920x1080">1920×1080 (HD)</option>
+          <option value="1280x720">1280×720 (720p)</option>
+          <option value="3840x2160">3840×2160 (4K UHD)</option>
+          <option value="1920x1080">1920×1080 (FHD)</option>
+          <option value="2048x1080">2048×1080 (2K DCI)</option>
+          <option value="720x576">720×576 (PAL SD)</option>
+          <option value="720x486">720×486 (NTSC SD)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Framerate</label>
+        <select id="framerate">
+          <option value="23.98">23.98 fps</option>
+          <option value="24">24 fps</option>
+          <option value="25" selected>25 fps (PAL)</option>
+          <option value="29.97">29.97 fps</option>
+          <option value="30">30 fps</option>
+          <option value="50">50 fps</option>
+          <option value="59.94">59.94 fps</option>
+          <option value="60">60 fps</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- KIOSK COMMAND -->
+    <div class="info-card">
+      Launch Chromium in kiosk mode on the Pi:
+      <code>chromium-browser --kiosk --noerrdialogs \<br>
+  --disable-infobars --no-first-run \<br>
+  http://localhost:3000/display</code>
+    </div>
+
+    <div class="info-card" id="res-command">
+      Set HDMI resolution (config.txt):
+      <code id="hdmi-code">hdmi_group=1<br>hdmi_mode=16  # 1080p25</code>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const WS_URL = `ws://${location.host}`;
+let ws;
+let config = {};
+let pushPending = false;
+
+// ── DOM refs ──────────────────────────────────────────────
+const dot = document.getElementById('dot');
+const wsLabel = document.getElementById('ws-label');
+const savedEl = document.getElementById('saved');
+const previewFrame = document.getElementById('preview-frame');
+const resBadge = document.getElementById('res-badge');
+const hdmiCode = document.getElementById('hdmi-code');
+
+// ── WebSocket ─────────────────────────────────────────────
+function connect() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    dot.classList.add('live');
+    wsLabel.textContent = 'connected';
+  };
+  ws.onclose = () => {
+    dot.classList.remove('live');
+    wsLabel.textContent = 'reconnecting...';
+    setTimeout(connect, 2000);
+  };
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'config') populateUI(msg.config);
+  };
+}
+
+// ── Populate UI from config ───────────────────────────────
+function populateUI(cfg) {
+  config = cfg;
+
+  // mode tabs
+  document.querySelectorAll('.mode-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.mode === cfg.mode);
+  });
+  document.querySelectorAll('.mode-panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'panel-' + cfg.mode);
+  });
+
+  document.getElementById('html-editor').value = cfg.html || '';
+  document.getElementById('css-editor').value = cfg.customCss || '';
+  document.getElementById('image-url').value = cfg.imageUrl || '';
+  document.getElementById('css-editor-image').value = cfg.customCss || '';
+  document.getElementById('bg-color-picker').value = cfg.backgroundColor || '#000000';
+  document.getElementById('bg-color-hex').value = cfg.backgroundColor || '#000000';
+
+  document.getElementById('overlay-enabled').checked = !!cfg.overlayEnabled;
+  document.getElementById('overlay-text').value = cfg.overlayText || '';
+  document.getElementById('overlay-pos').value = cfg.overlayPosition || 'bottom-left';
+  document.getElementById('overlay-style').value = cfg.overlayStyle || '';
+  document.getElementById('overlay-fields').style.display = cfg.overlayEnabled ? 'block' : 'none';
+
+  document.getElementById('resolution').value = cfg.resolution || '1920x1080';
+  document.getElementById('framerate').value = cfg.framerate || '25';
+
+  updateResBadge(cfg.resolution);
+  updateHdmiHint(cfg.resolution, cfg.framerate);
+}
+
+// ── Collect config from UI ────────────────────────────────
+function collectConfig() {
+  const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'html';
+  const res = document.getElementById('resolution').value;
+  const fps = document.getElementById('framerate').value;
+  return {
+    mode,
+    html: document.getElementById('html-editor').value,
+    customCss: mode === 'image'
+      ? document.getElementById('css-editor-image').value
+      : document.getElementById('css-editor').value,
+    imageUrl: document.getElementById('image-url').value,
+    backgroundColor: document.getElementById('bg-color-hex').value,
+    resolution: res,
+    framerate: fps,
+    overlayEnabled: document.getElementById('overlay-enabled').checked,
+    overlayText: document.getElementById('overlay-text').value,
+    overlayPosition: document.getElementById('overlay-pos').value,
+    overlayStyle: document.getElementById('overlay-style').value,
+  };
+}
+
+// ── Push to output ────────────────────────────────────────
+function pushConfig() {
+  const cfg = collectConfig();
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'update', config: cfg }));
+  } else {
+    fetch('/api/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(cfg) });
+  }
+  flashSaved();
+}
+
+function flashSaved() {
+  savedEl.classList.add('show');
+  setTimeout(() => savedEl.classList.remove('show'), 1500);
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function updateResBadge(res) {
+  if (!res) return;
+  const [w, h] = res.split('x');
+  resBadge.textContent = `${w}×${h}`;
+}
+
+const HDMI_MODES = {
+  '720x576_25':   { group: 1, mode: 17,  label: '576i25 (PAL SD)' },
+  '720x576_50':   { group: 1, mode: 18,  label: '576p50 (PAL SD)' },
+  '720x486_29.97':{ group: 1, mode: 6,   label: '480i (NTSC SD)' },
+  '1280x720_25':  { group: 1, mode: 61,  label: '720p25' },
+  '1280x720_29.97':{ group: 1, mode: 62, label: '720p30' },
+  '1280x720_50':  { group: 1, mode: 19,  label: '720p50' },
+  '1280x720_59.94':{ group: 1, mode: 47, label: '720p60' },
+  '1280x720_60':  { group: 1, mode: 4,   label: '720p60' },
+  '1920x1080_23.98': { group: 1, mode: 32, label: '1080p24' },
+  '1920x1080_24': { group: 1, mode: 32,  label: '1080p24' },
+  '1920x1080_25': { group: 1, mode: 33,  label: '1080p25' },
+  '1920x1080_29.97': { group: 1, mode: 34, label: '1080p30' },
+  '1920x1080_30': { group: 1, mode: 34,  label: '1080p30' },
+  '1920x1080_50': { group: 1, mode: 31,  label: '1080p50' },
+  '1920x1080_59.94': { group: 1, mode: 16, label: '1080p60' },
+  '1920x1080_60': { group: 1, mode: 16,  label: '1080p60' },
+  '3840x2160_25': { group: 2, mode: 96,  label: '4K UHD 25' },
+  '3840x2160_30': { group: 2, mode: 97,  label: '4K UHD 30' },
+  '3840x2160_50': { group: 2, mode: 98,  label: '4K UHD 50' },
+  '3840x2160_60': { group: 2, mode: 99,  label: '4K UHD 60' },
+};
+
+function updateHdmiHint(res, fps) {
+  const key = `${res}_${fps}`;
+  const m = HDMI_MODES[key];
+  if (m) {
+    hdmiCode.innerHTML = `hdmi_group=${m.group}<br>hdmi_mode=${m.mode}  # ${m.label}`;
+  } else {
+    hdmiCode.innerHTML = `# No preset for ${res}@${fps}fps<br># Set manually in /boot/config.txt`;
+  }
+}
+
+// ── Events ────────────────────────────────────────────────
+document.querySelectorAll('.mode-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.mode).classList.add('active');
+  });
+});
+
+document.getElementById('push-btn').addEventListener('click', pushConfig);
+
+document.getElementById('overlay-enabled').addEventListener('change', (e) => {
+  document.getElementById('overlay-fields').style.display = e.target.checked ? 'block' : 'none';
+});
+
+const bgPicker = document.getElementById('bg-color-picker');
+const bgHex = document.getElementById('bg-color-hex');
+bgPicker.addEventListener('input', () => bgHex.value = bgPicker.value);
+bgHex.addEventListener('input', () => {
+  if (/^#[0-9a-fA-F]{6}$/.test(bgHex.value)) bgPicker.value = bgHex.value;
+});
+
+document.getElementById('resolution').addEventListener('change', (e) => {
+  updateResBadge(e.target.value);
+  updateHdmiHint(e.target.value, document.getElementById('framerate').value);
+});
+document.getElementById('framerate').addEventListener('change', (e) => {
+  updateHdmiHint(document.getElementById('resolution').value, e.target.value);
+});
+
+// Keyboard shortcut: Ctrl+Enter to push
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    pushConfig();
+  }
+});
+
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "atem-html-source",
+  "version": "1.0.0",
+  "description": "HTML source generator for Blackmagic ATEM switchers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.16.0"
+  }
+}
