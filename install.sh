@@ -145,10 +145,19 @@ sudo sed -i 's/ quiet\b//g' "$CMDLINE_TXT"
 sudo sed -i 's/ loglevel=[0-9]\+//g' "$CMDLINE_TXT"
 sudo sed -i 's/$/ quiet loglevel=0/' "$CMDLINE_TXT"
 
-# ── 9. Plymouth ────────────────────────────────────────────
-echo "[9/11] Disabling Plymouth splash..."
+# ── 9. Plymouth + DPMS ────────────────────────────────────
+echo "[9/11] Disabling Plymouth splash and DPMS..."
 sudo systemctl disable plymouth.service 2>/dev/null || true
 sudo systemctl disable plymouth-start.service 2>/dev/null || true
+sudo mkdir -p /etc/X11/xorg.conf.d
+sudo tee /etc/X11/xorg.conf.d/10-nodpms.conf > /dev/null <<EOF
+Section "ServerFlags"
+    Option "BlankTime" "0"
+    Option "StandbyTime" "0"
+    Option "SuspendTime" "0"
+    Option "OffTime" "0"
+EndSection
+EOF
 
 # ── 10. atem-set-hdmi + sudoers ───────────────────────────
 echo "[10/11] Installing atem-set-hdmi and sudoers rules..."
