@@ -68,7 +68,7 @@ if command -v node &>/dev/null; then
 fi
 if [[ "$NODE_OK" == false ]]; then
   echo "       Installing Node.js via apt..."
-  sudo apt-get install -y nodejs
+  sudo apt-get install -y nodejs npm
 fi
 echo "       Node $(node -v) ready."
 
