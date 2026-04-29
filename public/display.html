@@ -24,7 +24,7 @@
     background: transparent;
     display: none;
   }
-  #html-content { width: 100%; height: 100%; display: none; }
+  #html-frame { width: 100%; height: 100%; border: none; background: transparent; display: none; }
   #image-content {
     width: 100%; height: 100%;
     display: none;
@@ -54,7 +54,7 @@
     <style id="user-css"></style>
     <div id="content">
       <iframe id="url-frame" allowtransparency="true"></iframe>
-      <div id="html-content"></div>
+      <iframe id="html-frame" allowtransparency="true"></iframe>
       <div id="image-content"><img id="image-el" src="" alt=""></div>
       <div id="idle">
         <div>Web UI</div>
@@ -93,13 +93,13 @@ function applyConfig(cfg) {
   document.getElementById('user-css').textContent = cfg.customCss || '';
 
   const frame = document.getElementById('url-frame');
-  const htmlDiv = document.getElementById('html-content');
+  const htmlFrame = document.getElementById('html-frame');
   const imgDiv = document.getElementById('image-content');
   const img = document.getElementById('image-el');
 
   const idleDiv = document.getElementById('idle');
   frame.style.display = 'none';
-  htmlDiv.style.display = 'none';
+  htmlFrame.style.display = 'none';
   imgDiv.style.display = 'none';
   idleDiv.style.display = 'none';
 
@@ -107,8 +107,9 @@ function applyConfig(cfg) {
     if (frame.src !== cfg.url) frame.src = cfg.url;
     frame.style.display = 'block';
   } else if (cfg.mode === 'html') {
-    htmlDiv.innerHTML = cfg.html || '';
-    htmlDiv.style.display = 'block';
+    const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;overflow:hidden;background:transparent;}${cfg.customCss||''}</style></head><body>${cfg.html||''}</body></html>`;
+    htmlFrame.srcdoc = doc;
+    htmlFrame.style.display = 'block';
   } else if (cfg.mode === 'image' && cfg.imageUrl) {
     img.src = cfg.imageUrl;
     img.style.objectFit = cfg.imageFit || 'cover';
