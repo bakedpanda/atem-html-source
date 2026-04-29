@@ -32,6 +32,19 @@
     justify-content: center;
   }
   #image-content img { width: 100%; height: 100%; object-position: center; }
+  #idle {
+    width: 100%; height: 100%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    font-family: monospace;
+    color: rgba(255,255,255,0.5);
+    font-size: 32px;
+    letter-spacing: 0.05em;
+  }
+  #idle .url { font-size: 48px; color: rgba(255,255,255,0.85); }
 </style>
 </head>
 <body>
@@ -43,6 +56,10 @@
       <iframe id="url-frame" allowtransparency="true"></iframe>
       <div id="html-content"></div>
       <div id="image-content"><img id="image-el" src="" alt=""></div>
+      <div id="idle">
+        <div>Admin panel</div>
+        <div class="url" id="idle-url"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -75,9 +92,11 @@ function applyConfig(cfg) {
   const imgDiv = document.getElementById('image-content');
   const img = document.getElementById('image-el');
 
+  const idleDiv = document.getElementById('idle');
   frame.style.display = 'none';
   htmlDiv.style.display = 'none';
   imgDiv.style.display = 'none';
+  idleDiv.style.display = 'none';
 
   if (cfg.mode === 'url' && cfg.url) {
     if (frame.src !== cfg.url) frame.src = cfg.url;
@@ -89,6 +108,9 @@ function applyConfig(cfg) {
     img.src = cfg.imageUrl;
     img.style.objectFit = cfg.imageFit || 'cover';
     imgDiv.style.display = 'flex';
+  } else {
+    document.getElementById('idle-url').textContent = `${location.protocol}//${location.hostname}:${location.port || 3000}`;
+    idleDiv.style.display = 'flex';
   }
 }
 
