@@ -187,6 +187,15 @@
       <div class="apply-note" id="apply-note"></div>
     </div>
 
+    <div class="section" style="margin-bottom:0;">
+      <div class="section-label">System</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-secondary" id="reboot-btn">Reboot</button>
+        <button class="btn btn-secondary" id="shutdown-btn" style="color:var(--danger);border-color:var(--danger);">Shutdown</button>
+      </div>
+      <div class="apply-note" id="system-note"></div>
+    </div>
+
   </div>
 </main>
 
@@ -406,6 +415,25 @@ function scalePreview() {
   const scale = box.clientWidth / 1920;
   frame.style.transform = `scale(${scale})`;
 }
+
+async function systemAction(action) {
+  const note = document.getElementById('system-note');
+  const rebootBtn = document.getElementById('reboot-btn');
+  const shutdownBtn = document.getElementById('shutdown-btn');
+  rebootBtn.disabled = true;
+  shutdownBtn.disabled = true;
+  note.textContent = action === 'reboot' ? 'Rebooting — reconnecting in ~45s...' : 'Shutting down...';
+  try {
+    await fetch(`/api/${action}`, { method: 'POST' });
+  } catch {}
+}
+
+document.getElementById('reboot-btn').addEventListener('click', () => {
+  if (confirm('Reboot the Pi?')) systemAction('reboot');
+});
+document.getElementById('shutdown-btn').addEventListener('click', () => {
+  if (confirm('Shut down the Pi?')) systemAction('shutdown');
+});
 
 buildOutputSelect();
 connect();

@@ -131,6 +131,11 @@ app.post('/api/reboot', (req, res) => {
   setTimeout(() => exec('sudo reboot'), 500);
 });
 
+app.post('/api/shutdown', (req, res) => {
+  res.json({ ok: true });
+  setTimeout(() => exec('sudo poweroff'), 500);
+});
+
 app.get('/display', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'display.html'));
 });

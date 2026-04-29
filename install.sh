@@ -167,7 +167,8 @@ sudo chown root:root /usr/local/bin/atem-set-hdmi
 
 echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/local/bin/atem-set-hdmi" \
   | sudo tee /etc/sudoers.d/atem-hdmi > /dev/null
-echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /sbin/reboot" \
+printf '%s ALL=(ALL) NOPASSWD: /sbin/reboot\n%s ALL=(ALL) NOPASSWD: /sbin/poweroff\n' \
+  "${CURRENT_USER}" "${CURRENT_USER}" \
   | sudo tee /etc/sudoers.d/atem-reboot > /dev/null
 sudo visudo -c -f /etc/sudoers.d/atem-hdmi
 sudo visudo -c -f /etc/sudoers.d/atem-reboot
