@@ -110,10 +110,11 @@ function applyConfig(cfg) {
     imgDiv.style.display = 'flex';
   } else if (cfg.mode === 'color') {
     // background colour only — no idle text
-  } else {
+  } else if (cfg.mode === 'idle') {
     document.getElementById('idle-url').textContent = `${location.protocol}//${location.hostname}:${location.port || 3000}`;
     idleDiv.style.display = 'flex';
   }
+  // url with no url, image with no imageUrl — just show background colour
 }
 
 let wsEverConnected = false;
