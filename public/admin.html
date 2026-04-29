@@ -617,8 +617,110 @@ function populateEditorFromPreview(cfg) {
   document.getElementById('image-url').value = cfg.imageUrl || '';
   document.getElementById('image-fit').value = cfg.imageFit || 'cover';
 }
-function populateColourFields(hex) { /* Task 9 */ }
-function renderSwatches(presets) { /* Task 9 */ }
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+}
+function hexToRgb(hex) {
+  return { r: parseInt(hex.slice(1,3),16), g: parseInt(hex.slice(3,5),16), b: parseInt(hex.slice(5,7),16) };
+}
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h = 0, s = 0, l = (max+min)/2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    if (max === r) h = ((g-b)/d + (g<b?6:0))/6;
+    else if (max === g) h = ((b-r)/d + 2)/6;
+    else h = ((r-g)/d + 4)/6;
+  }
+  return { h: Math.round(h*360), s: Math.round(s*100), l: Math.round(l*100) };
+}
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h/30) % 12;
+  const a = s * Math.min(l, 1-l);
+  const f = n => Math.round((l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)))) * 255);
+  return { r: f(0), g: f(8), b: f(4) };
+}
+
+function populateColourFields(hex) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  const { r, g, b } = hexToRgb(hex);
+  const { h, s, l } = rgbToHsl(r, g, b);
+  document.getElementById('bg-swatch').style.background = hex;
+  document.getElementById('bg-hex').value = hex;
+  document.getElementById('bg-r').value = r;
+  document.getElementById('bg-g').value = g;
+  document.getElementById('bg-b').value = b;
+  document.getElementById('bg-h').value = h;
+  document.getElementById('bg-s').value = s;
+  document.getElementById('bg-l').value = l;
+  highlightActiveSwatch(hex);
+}
+
+function highlightActiveSwatch(hex) {
+  document.querySelectorAll('.swatch').forEach(s =>
+    s.classList.toggle('active', s.dataset.hex === hex));
+}
+
+document.getElementById('bg-hex').addEventListener('input', () => {
+  let val = document.getElementById('bg-hex').value.trim();
+  if (/^[0-9a-fA-F]{6}$/.test(val)) val = '#' + val;
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) populateColourFields(val);
+});
+
+['bg-r','bg-g','bg-b'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+  const r = Math.min(255, Math.max(0, parseInt(document.getElementById('bg-r').value)||0));
+  const g = Math.min(255, Math.max(0, parseInt(document.getElementById('bg-g').value)||0));
+  const b = Math.min(255, Math.max(0, parseInt(document.getElementById('bg-b').value)||0));
+  populateColourFields(rgbToHex(r, g, b));
+}));
+
+['bg-h','bg-s','bg-l'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+  const h = Math.min(360, Math.max(0, parseInt(document.getElementById('bg-h').value)||0));
+  const s = Math.min(100, Math.max(0, parseInt(document.getElementById('bg-s').value)||0));
+  const l = Math.min(100, Math.max(0, parseInt(document.getElementById('bg-l').value)||0));
+  const { r, g, b } = hslToRgb(h, s, l);
+  populateColourFields(rgbToHex(r, g, b));
+}));
+
+const BUILTIN_SWATCHES = [
+  { hex: '#000000', name: 'Black' },
+  { hex: '#00b140', name: 'BMD Green' },
+  { hex: '#ffffff', name: 'White' },
+  { hex: '#0000ff', name: 'Blue' },
+  { hex: '#ff0000', name: 'Red' },
+];
+
+function renderSwatches(customPresets) {
+  const row = document.getElementById('swatch-row');
+  row.innerHTML = '';
+  [...BUILTIN_SWATCHES, ...customPresets].forEach(({ hex, name }) => {
+    const el = document.createElement('div');
+    el.className = 'swatch';
+    el.dataset.hex = hex;
+    el.title = name || hex;
+    el.style.background = hex;
+    if (hex === '#ffffff') el.style.borderColor = '#444';
+    el.addEventListener('click', () => populateColourFields(hex));
+    row.appendChild(el);
+  });
+  const addBtn = document.createElement('div');
+  addBtn.className = 'swatch-add';
+  addBtn.title = 'Save current colour as preset';
+  addBtn.textContent = '+';
+  addBtn.addEventListener('click', () => {
+    const hex = document.getElementById('bg-hex').value;
+    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+    const name = prompt('Name for this colour preset:', hex);
+    if (!name) return;
+    const updated = [...(programConfig.colourPresets || []), { hex, name }];
+    send({ type: 'updateGlobal', config: { colourPresets: updated } });
+  });
+  row.appendChild(addBtn);
+  highlightActiveSwatch(document.getElementById('bg-hex').value);
+}
 function renderPresets(presets) { /* Task 11 */ }
 function populateUrlHistory(history) { /* Task 10 */ }
 
@@ -633,7 +735,14 @@ function updateLiveStatus(cfg) {
 }
 
 function syncOutputSelect(cfg) { /* Task 12 */ }
-function updateShowIdleBtn(showIdle) { /* Task 9 */ }
+function updateShowIdleBtn(showIdle) {
+  document.getElementById('show-idle-btn').textContent =
+    showIdle === false ? 'Show web UI URL' : 'Hide web UI URL';
+}
+
+document.getElementById('show-idle-btn').addEventListener('click', () => {
+  send({ type: 'updateGlobal', config: { showIdle: programConfig.showIdle === false } });
+});
 
 window.addEventListener('resize', scaleAllMonitors);
 
