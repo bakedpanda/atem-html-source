@@ -27,7 +27,7 @@ In the imager's **OS Customisation** screen, set:
 
 ## Step 2 — Install
 
-Boot the Pi, SSH in, then run:
+Boot the Pi, SSH in, then run (`git` is pre-installed on Raspberry Pi OS Desktop):
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/atem-html-source.git
@@ -36,7 +36,7 @@ chmod +x install.sh && ./install.sh
 ```
 
 The script asks two questions:
-1. Confirm hostname
+1. Confirm or change the hostname (applies it to the Pi and uses it in the final URL)
 2. Choose default HDMI output resolution/framerate
 
 Then it configures everything and reboots. Allow ~5 minutes for the full run on a 3B+.
@@ -95,7 +95,10 @@ sudo journalctl -u atem-html-source -n 50
 Harmless on 3B+. Chromium falls back to software rendering automatically.
 
 **Chromium not found:**
-The binary is `chromium` on Trixie. Check with `which chromium`.
+The binary is `chromium` on Trixie. Check with `which chromium`. If missing, install with:
+```bash
+sudo apt install chromium
+```
 
 **Pi 3B+ performance tips:**
 - Stick to 1080p or 720p
