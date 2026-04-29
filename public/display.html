@@ -132,7 +132,8 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.type === 'config') applyConfig(msg.config);
+      if (msg.type === 'programUpdate') applyConfig(msg.config);
+      if (msg.type === 'init') applyConfig(msg.programConfig);
     } catch {}
   };
   ws.onclose = () => {
