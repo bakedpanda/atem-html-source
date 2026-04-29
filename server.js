@@ -83,11 +83,15 @@ app.post('/api/resolution', (req, res) => {
     return res.status(400).json({ ok: false, error: 'Missing required fields' });
   }
 
+  if (!/^\d+x\d+$/.test(resolution) || !/^[\d.]+$/.test(String(framerate))) {
+    return res.status(400).json({ ok: false, error: 'Invalid resolution or framerate format' });
+  }
+
   currentConfig = { ...currentConfig, resolution, framerate, interlaced: !!interlaced };
   saveConfig(currentConfig);
   broadcast({ type: 'config', config: currentConfig });
 
-  exec(`sudo atem-set-hdmi ${parseInt(hdmiGroup)} ${parseInt(hdmiMode)}`, (err) => {
+  exec(`sudo atem-set-hdmi ${parseInt(hdmiGroup)} ${parseInt(hdmiMode)}`, { timeout: 5000 }, (err) => {
     if (err) console.error('atem-set-hdmi error:', err.message);
   });
 
@@ -99,7 +103,7 @@ app.post('/api/resolution', (req, res) => {
   const rate = parseFloat(framerate);
 
   function tryXrandr(output, cb) {
-    exec(`DISPLAY=:0 xrandr --output ${output} --mode ${w}x${h} --rate ${rate}`, cb);
+    exec(`DISPLAY=:0 xrandr --output ${output} --mode ${w}x${h} --rate ${rate}`, { timeout: 5000 }, cb);
   }
 
   tryXrandr('HDMI-1', (err) => {
