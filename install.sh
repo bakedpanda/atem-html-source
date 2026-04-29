@@ -1,5 +1,11 @@
 #!/bin/bash
 set -e
+set -o pipefail
+
+if [[ "$EUID" -eq 0 ]]; then
+  echo "Error: do not run this script as root. Run as the kiosk user." >&2
+  exit 1
+fi
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CURRENT_USER="$(whoami)"
@@ -16,6 +22,10 @@ echo ""
 # ── Prompt 1: Hostname ─────────────────────────────────────
 read -p "Hostname [$CURRENT_HOST]: " INPUT_HOST
 CHOSEN_HOST="${INPUT_HOST:-$CURRENT_HOST}"
+if [[ "$CHOSEN_HOST" != "$CURRENT_HOST" ]]; then
+  sudo hostnamectl set-hostname "$CHOSEN_HOST"
+  sudo sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$CHOSEN_HOST/" /etc/hosts
+fi
 
 # ── Prompt 2: Default resolution ──────────────────────────
 echo ""
@@ -93,7 +103,7 @@ xsetroot -solid black &
 xset s off &
 xset -dpms &
 xset s noblank &
-bash ${REPO_DIR}/kiosk-launch.sh &
+bash "${REPO_DIR}/kiosk-launch.sh" &
 EOF
 
 # ── 6. systemd service ─────────────────────────────────────
@@ -148,10 +158,15 @@ echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/local/bin/atem-set-hdmi" \
   | sudo tee /etc/sudoers.d/atem-hdmi > /dev/null
 echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /sbin/reboot" \
   | sudo tee /etc/sudoers.d/atem-reboot > /dev/null
+sudo visudo -c -f /etc/sudoers.d/atem-hdmi
+sudo visudo -c -f /etc/sudoers.d/atem-reboot
 sudo chmod 440 /etc/sudoers.d/atem-hdmi /etc/sudoers.d/atem-reboot
 
 # ── 11. Initial config.json ────────────────────────────────
 echo "[11/11] Writing initial config..."
+if [[ -f "${REPO_DIR}/config.json" ]]; then
+  echo "       Existing config.json preserved."
+else
 tee "${REPO_DIR}/config.json" > /dev/null <<EOF
 {
   "mode": "color",
@@ -166,6 +181,7 @@ tee "${REPO_DIR}/config.json" > /dev/null <<EOF
   "interlaced": false
 }
 EOF
+fi
 
 echo ""
 echo "=============================="
