@@ -3,6 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
 const fs = require('fs');
+const { exec } = require('child_process');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,17 +12,16 @@ const wss = new WebSocket.Server({ server });
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 
 const DEFAULT_CONFIG = {
-  mode: 'html',          // 'html' | 'image' | 'color'
+  mode: 'color',
   html: '<h1 style="color:white;font-family:sans-serif;font-size:80px;margin:0;">Live</h1>',
+  customCss: 'body { background: transparent; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }',
+  url: '',
   imageUrl: '',
+  imageFit: 'cover',
   backgroundColor: '#000000',
   resolution: '1920x1080',
   framerate: '25',
-  customCss: 'body { background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }',
-  overlayEnabled: false,
-  overlayText: '',
-  overlayPosition: 'bottom-left',
-  overlayStyle: 'color:white;font-family:sans-serif;font-size:36px;padding:20px;background:rgba(0,0,0,0.5);'
+  interlaced: false
 };
 
 function loadConfig() {
@@ -30,7 +30,7 @@ function loadConfig() {
       return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) };
     }
   } catch (e) {
-    console.error('Failed to load config, using defaults:', e.message);
+    console.error('Failed to load config:', e.message);
   }
   return { ...DEFAULT_CONFIG };
 }
@@ -49,10 +49,8 @@ function broadcast(message) {
   });
 }
 
-wss.on('connection', (ws, req) => {
-  // Send current config immediately on connect
+wss.on('connection', (ws) => {
   ws.send(JSON.stringify({ type: 'config', config: currentConfig }));
-
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data);
@@ -62,7 +60,7 @@ wss.on('connection', (ws, req) => {
         broadcast({ type: 'config', config: currentConfig });
       }
     } catch (e) {
-      console.error('WS message error:', e.message);
+      console.error('WS error:', e.message);
     }
   });
 });
@@ -70,7 +68,6 @@ wss.on('connection', (ws, req) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// REST fallback for config
 app.get('/api/config', (req, res) => res.json(currentConfig));
 
 app.post('/api/config', (req, res) => {
@@ -80,12 +77,52 @@ app.post('/api/config', (req, res) => {
   res.json({ ok: true, config: currentConfig });
 });
 
-// Serve display page (shown on HDMI output)
+app.post('/api/resolution', (req, res) => {
+  const { resolution, framerate, interlaced, hdmiGroup, hdmiMode } = req.body;
+  if (!resolution || !framerate || hdmiGroup == null || hdmiMode == null) {
+    return res.status(400).json({ ok: false, error: 'Missing required fields' });
+  }
+
+  currentConfig = { ...currentConfig, resolution, framerate, interlaced: !!interlaced };
+  saveConfig(currentConfig);
+  broadcast({ type: 'config', config: currentConfig });
+
+  exec(`sudo atem-set-hdmi ${parseInt(hdmiGroup)} ${parseInt(hdmiMode)}`, (err) => {
+    if (err) console.error('atem-set-hdmi error:', err.message);
+  });
+
+  if (interlaced) {
+    return res.json({ ok: true, requiresReboot: true });
+  }
+
+  const [w, h] = resolution.split('x');
+  const rate = parseFloat(framerate);
+
+  function tryXrandr(output, cb) {
+    exec(`DISPLAY=:0 xrandr --output ${output} --mode ${w}x${h} --rate ${rate}`, cb);
+  }
+
+  tryXrandr('HDMI-1', (err) => {
+    if (!err) return res.json({ ok: true, requiresReboot: false });
+    tryXrandr('HDMI-A-1', (err2) => {
+      if (err2) {
+        console.error('xrandr failed:', err2.message);
+        return res.json({ ok: true, requiresReboot: true });
+      }
+      res.json({ ok: true, requiresReboot: false });
+    });
+  });
+});
+
+app.post('/api/reboot', (req, res) => {
+  res.json({ ok: true });
+  setTimeout(() => exec('sudo reboot'), 500);
+});
+
 app.get('/display', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'display.html'));
 });
 
-// Serve admin page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -96,8 +133,7 @@ app.get('/admin', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n  ATEM HTML Source running`);
-  console.log(`  Admin UI:    http://localhost:${PORT}/admin`);
-  console.log(`  Display URL: http://localhost:${PORT}/display`);
-  console.log(`\n  Open the Display URL in Chromium kiosk mode on the Pi.\n`);
+  console.log(`\n  ATEM HTML Source`);
+  console.log(`  Admin:   http://localhost:${PORT}/`);
+  console.log(`  Display: http://localhost:${PORT}/display\n`);
 });
