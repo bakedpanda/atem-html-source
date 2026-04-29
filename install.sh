@@ -68,7 +68,7 @@ if command -v node &>/dev/null; then
 fi
 if [[ "$NODE_OK" == false ]]; then
   echo "       Installing Node.js 20 via NodeSource..."
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - -qq
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
   sudo apt-get install -y nodejs -qq
 fi
 echo "       Node $(node -v) ready."
