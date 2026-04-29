@@ -158,7 +158,10 @@
       </div>
     </div>
 
-    <button class="btn btn-primary" id="push-btn">Push to output</button>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch;">
+      <button class="btn btn-primary" id="push-btn">Push to output</button>
+      <button class="btn btn-secondary" id="clear-btn" style="padding:12px 16px;" title="Clear current mode content">✕</button>
+    </div>
 
   </div>
 
@@ -368,7 +371,21 @@ document.querySelectorAll('.mode-tab').forEach(btn => {
   });
 });
 
+function clearMode() {
+  const mode = document.querySelector('.mode-tab.active')?.dataset.mode;
+  if (mode === 'html') {
+    document.getElementById('html-editor').value = '';
+    document.getElementById('css-editor').value = '';
+  } else if (mode === 'url') {
+    document.getElementById('url-input').value = '';
+  } else if (mode === 'image') {
+    document.getElementById('image-url').value = '';
+  }
+  pushConfig();
+}
+
 document.getElementById('push-btn').addEventListener('click', pushConfig);
+document.getElementById('clear-btn').addEventListener('click', clearMode);
 document.getElementById('apply-btn').addEventListener('click', applyResolution);
 document.getElementById('output-mode-select').addEventListener('change', updateApplyBtn);
 
