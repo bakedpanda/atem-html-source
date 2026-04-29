@@ -491,7 +491,9 @@ const bgHex = document.getElementById('bg-hex');
 
 bgPicker.addEventListener('input', () => setAllColourFields(bgPicker.value));
 bgHex.addEventListener('input', () => {
-  if (/^#[0-9a-fA-F]{6}$/.test(bgHex.value)) setAllColourFields(bgHex.value);
+  let val = bgHex.value.trim();
+  if (/^[0-9a-fA-F]{6}$/.test(val)) val = '#' + val;
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) setAllColourFields(val);
 });
 ['bg-r','bg-g','bg-b'].forEach(id => document.getElementById(id).addEventListener('input', () => {
   const r = Math.min(255, Math.max(0, parseInt(document.getElementById('bg-r').value)||0));
