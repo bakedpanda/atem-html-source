@@ -36,7 +36,11 @@ function loadConfig() {
 }
 
 function saveConfig(config) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  } catch (e) {
+    console.error('Failed to save config:', e.message);
+  }
 }
 
 let currentConfig = loadConfig();
@@ -55,7 +59,9 @@ wss.on('connection', (ws) => {
     try {
       const msg = JSON.parse(data);
       if (msg.type === 'update') {
-        currentConfig = { ...currentConfig, ...msg.config };
+        const update = { ...msg.config };
+        if (update.framerate != null) update.framerate = String(update.framerate);
+        currentConfig = { ...currentConfig, ...update };
         saveConfig(currentConfig);
         broadcast({ type: 'config', config: currentConfig });
       }
@@ -71,7 +77,9 @@ app.use(express.json());
 app.get('/api/config', (req, res) => res.json(currentConfig));
 
 app.post('/api/config', (req, res) => {
-  currentConfig = { ...currentConfig, ...req.body };
+  const body = { ...req.body };
+  if (body.framerate != null) body.framerate = String(body.framerate);
+  currentConfig = { ...currentConfig, ...body };
   saveConfig(currentConfig);
   broadcast({ type: 'config', config: currentConfig });
   res.json({ ok: true, config: currentConfig });
