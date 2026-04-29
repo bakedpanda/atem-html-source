@@ -30,7 +30,7 @@ In the imager's **OS Customisation** screen, set:
 Boot the Pi, SSH in, then run (`git` is pre-installed on Raspberry Pi OS Desktop):
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/atem-html-source.git
+git clone https://github.com/bakedpanda/atem-html-source.git
 cd atem-html-source
 chmod +x install.sh && ./install.sh
 ```

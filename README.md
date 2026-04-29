@@ -7,7 +7,7 @@ Turns a Raspberry Pi into a fullscreen HDMI source for a Blackmagic ATEM switche
 Flash **Raspberry Pi OS Desktop (32-bit, Trixie)** with Raspberry Pi Imager. Boot the Pi, SSH in, then:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/atem-html-source.git
+git clone https://github.com/bakedpanda/atem-html-source.git
 cd atem-html-source
 chmod +x install.sh && ./install.sh
 ```
