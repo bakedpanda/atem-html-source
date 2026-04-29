@@ -48,7 +48,16 @@ function saveConfig(config) {
   }
 }
 
-let currentConfig = loadConfig();
+const CONTENT_FIELDS = ['mode', 'html', 'customCss', 'url', 'imageUrl', 'imageFit', 'backgroundColor'];
+
+function pickContent(cfg) {
+  const out = {};
+  CONTENT_FIELDS.forEach(k => { out[k] = cfg[k]; });
+  return out;
+}
+
+let programConfig = loadConfig();
+let previewConfig = { ...programConfig };
 
 function broadcast(message) {
   wss.clients.forEach(client => {
@@ -59,17 +68,45 @@ function broadcast(message) {
 }
 
 wss.on('connection', (ws) => {
-  ws.send(JSON.stringify({ type: 'config', config: currentConfig }));
+  ws.send(JSON.stringify({ type: 'init', previewConfig, programConfig }));
+
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data);
-      if (msg.type === 'update') {
-        const update = { ...msg.config };
-        if (update.framerate != null) update.framerate = String(update.framerate);
-        currentConfig = { ...currentConfig, ...update };
-        saveConfig(currentConfig);
-        broadcast({ type: 'config', config: currentConfig });
+
+      if (msg.type === 'updatePreview') {
+        const update = {};
+        CONTENT_FIELDS.forEach(k => { if (msg.config[k] !== undefined) update[k] = msg.config[k]; });
+        previewConfig = { ...previewConfig, ...update };
+
+        // Append URL to history when URL mode is pushed to preview
+        if (msg.config.mode === 'url' && msg.config.url) {
+          const h = [msg.config.url, ...(programConfig.urlHistory || []).filter(u => u !== msg.config.url)].slice(0, 20);
+          programConfig = { ...programConfig, urlHistory: h };
+          saveConfig(programConfig);
+        }
+
+        broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
+
+      } else if (msg.type === 'cut') {
+        programConfig = { ...programConfig, ...pickContent(previewConfig) };
+        saveConfig(programConfig);
+        broadcast({ type: 'programUpdate', config: programConfig });
+
+      } else if (msg.type === 'clearPreview') {
+        CONTENT_FIELDS.forEach(k => { previewConfig[k] = DEFAULT_CONFIG[k]; });
+        broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
+
+      } else if (msg.type === 'updateGlobal') {
+        const allowed = ['showIdle', 'colourPresets', 'contentPresets'];
+        const update = {};
+        allowed.forEach(k => { if (msg.config[k] !== undefined) update[k] = msg.config[k]; });
+        if (msg.config.framerate != null) update.framerate = String(msg.config.framerate);
+        programConfig = { ...programConfig, ...update };
+        saveConfig(programConfig);
+        broadcast({ type: 'programUpdate', config: programConfig });
       }
+
     } catch (e) {
       console.error('WS error:', e.message);
     }
@@ -79,16 +116,16 @@ wss.on('connection', (ws) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-app.get('/api/config', (req, res) => res.json(currentConfig));
+app.get('/api/config', (req, res) => res.json(programConfig));
 app.get('/api/info', (req, res) => res.json({ hostname: os.hostname(), port: PORT }));
 
 app.post('/api/config', (req, res) => {
   const body = { ...req.body };
   if (body.framerate != null) body.framerate = String(body.framerate);
-  currentConfig = { ...currentConfig, ...body };
-  saveConfig(currentConfig);
-  broadcast({ type: 'config', config: currentConfig });
-  res.json({ ok: true, config: currentConfig });
+  programConfig = { ...programConfig, ...body };
+  saveConfig(programConfig);
+  broadcast({ type: 'programUpdate', config: programConfig });
+  res.json({ ok: true, config: programConfig });
 });
 
 app.post('/api/resolution', (req, res) => {
@@ -101,9 +138,9 @@ app.post('/api/resolution', (req, res) => {
     return res.status(400).json({ ok: false, error: 'Invalid resolution or framerate format' });
   }
 
-  currentConfig = { ...currentConfig, resolution, framerate, interlaced: !!interlaced };
-  saveConfig(currentConfig);
-  broadcast({ type: 'config', config: currentConfig });
+  programConfig = { ...programConfig, resolution, framerate, interlaced: !!interlaced };
+  saveConfig(programConfig);
+  broadcast({ type: 'programUpdate', config: programConfig });
 
   exec(`sudo atem-set-hdmi ${parseInt(hdmiGroup)} ${parseInt(hdmiMode)}`, { timeout: 5000 }, (err) => {
     if (err) console.error('atem-set-hdmi error:', err.message);
