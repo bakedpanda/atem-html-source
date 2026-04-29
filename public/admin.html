@@ -499,7 +499,77 @@ select { padding: 4px 6px; height: 26px; }
 </div>
 
 <script>
-// JavaScript added in subsequent tasks
+const WS_URL = `ws://${location.host}`;
+let ws;
+let previewConfig = {};
+let programConfig = {};
+
+// ── WebSocket ─────────────────────────────────────
+function connect() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    document.getElementById('dot').classList.add('live');
+    document.getElementById('ws-label').textContent = 'connected';
+    document.querySelectorAll('.monitor-offline').forEach(el => el.parentElement.classList.remove('offline'));
+  };
+
+  ws.onclose = () => {
+    document.getElementById('dot').classList.remove('live');
+    document.getElementById('ws-label').textContent = 'reconnecting…';
+    document.getElementById('preview-box').classList.add('offline');
+    setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'init') {
+      previewConfig = msg.previewConfig;
+      programConfig = msg.programConfig;
+      renderPreviewIframe(previewConfig);
+      renderProgramIframe(programConfig);
+      populateEditorFromPreview(previewConfig);
+      populateColourFields(programConfig.backgroundColor || '#000000');
+      renderSwatches(programConfig.colourPresets || []);
+      renderPresets(programConfig.contentPresets || []);
+      populateUrlHistory(programConfig.urlHistory || []);
+      updateLiveStatus(programConfig);
+      syncOutputSelect(programConfig);
+      updateShowIdleBtn(programConfig.showIdle);
+    } else if (msg.type === 'previewUpdate') {
+      previewConfig = msg.config;
+      renderPreviewIframe(previewConfig);
+      if (msg.urlHistory) populateUrlHistory(msg.urlHistory);
+    } else if (msg.type === 'programUpdate') {
+      programConfig = msg.config;
+      renderProgramIframe(programConfig);
+      updateLiveStatus(programConfig);
+      renderSwatches(programConfig.colourPresets || []);
+      renderPresets(programConfig.contentPresets || []);
+      updateShowIdleBtn(programConfig.showIdle);
+    }
+  };
+}
+
+function send(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+}
+
+connect();
+
+// Stubs — implemented in subsequent tasks
+function renderPreviewIframe(cfg) { /* Task 7 */ }
+function renderProgramIframe(cfg) { /* Task 6 */ }
+function populateEditorFromPreview(cfg) { /* Task 8 */ }
+function populateColourFields(hex) { /* Task 9 */ }
+function renderSwatches(presets) { /* Task 9 */ }
+function renderPresets(presets) { /* Task 11 */ }
+function populateUrlHistory(history) { /* Task 10 */ }
+function updateLiveStatus(cfg) { /* Task 6 */ }
+function syncOutputSelect(cfg) { /* Task 12 */ }
+function updateShowIdleBtn(showIdle) { /* Task 9 */ }
 </script>
 </body>
 </html>
