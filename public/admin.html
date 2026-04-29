@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATEM HTML Source — Admin</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root {
+    --bg: #0e0e0e; --surface: #1a1a1a; --surface2: #242424; --border: #2e2e2e;
+    --accent: #e8ff47; --text: #f0f0f0; --muted: #888;
+    --danger: #ff4747; --success: #47ff8a;
+    --font: 'IBM Plex Mono', 'Fira Code', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .logo { font-size: 14px; font-weight: 500; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; }
+  .logo span { color: var(--muted); font-weight: 400; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); display: inline-block; margin-right: 8px; transition: background 0.3s; }
+  .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .ws-status { color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 8px; }
+  .saved-flash { color: var(--success); font-size: 11px; opacity: 0; transition: opacity 0.3s; margin-left: 12px; }
+  .saved-flash.show { opacity: 1; }
+  main { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 57px); }
+  .panel-left { padding: 24px; overflow-y: auto; border-right: 1px solid var(--border); }
+  .panel-right { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+  .section { margin-bottom: 28px; }
+  .section-label {
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .field { margin-bottom: 14px; }
+  label { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; margin-bottom: 6px; }
+  input[type=text], input[type=url], input[type=color], select, textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font); font-size: 12px;
+    padding: 8px 10px; border-radius: 4px; outline: none; transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  #html-editor { min-height: 200px; font-size: 11px; tab-size: 2; }
+  #css-editor { min-height: 80px; font-size: 11px; }
+  input[type=color] { padding: 3px; height: 36px; cursor: pointer; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mode-tabs { display: flex; gap: 2px; background: var(--surface2); padding: 3px; border-radius: 6px; margin-bottom: 16px; }
+  .mode-tab {
+    flex: 1; padding: 7px; text-align: center; border-radius: 4px; cursor: pointer;
+    font-family: var(--font); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    border: none; color: var(--muted); background: transparent; transition: all 0.15s;
+  }
+  .mode-tab.active { background: var(--accent); color: #000; font-weight: 500; }
+  .mode-panel { display: none; }
+  .mode-panel.active { display: block; }
+  .btn {
+    width: 100%; padding: 12px; border: none; border-radius: 4px;
+    font-family: var(--font); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .preview-box { background: #000; border: 1px solid var(--border); border-radius: 4px; aspect-ratio: 16/9; overflow: hidden; position: relative; }
+  .preview-box iframe { width: 100%; height: 100%; border: none; }
+  .preview-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+  .res-badge { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.7); color: var(--muted); font-size: 9px; padding: 2px 6px; border-radius: 3px; }
+  .launch-link {
+    display: block; text-align: center; padding: 10px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 4px; color: var(--muted);
+    text-decoration: none; font-size: 11px; letter-spacing: 0.06em; transition: border-color 0.15s;
+  }
+  .launch-link:hover { border-color: var(--accent); color: var(--accent); }
+  .apply-note { font-size: 10px; color: var(--muted); margin-top: 6px; min-height: 14px; }
+  select option { background: var(--surface2); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ATEM <span>/ HTML Source</span></div>
+  <div class="ws-status">
+    <span class="status-dot" id="dot"></span>
+    <span id="ws-label">connecting...</span>
+    <span class="saved-flash" id="saved">SAVED</span>
+  </div>
+</header>
+
+<main>
+  <div class="panel-left">
+
+    <div class="section">
+      <div class="section-label">Output mode</div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="html">HTML</button>
+        <button class="mode-tab" data-mode="url">URL</button>
+        <button class="mode-tab" data-mode="image">Image</button>
+        <button class="mode-tab" data-mode="color">Colour</button>
+      </div>
+
+      <div class="mode-panel active" id="panel-html">
+        <div class="field">
+          <label>HTML content</label>
+          <textarea id="html-editor" spellcheck="false" placeholder="<h1>Your content</h1>"></textarea>
+        </div>
+        <div class="field">
+          <label>Custom CSS</label>
+          <textarea id="css-editor" spellcheck="false" placeholder="body { background: transparent; display:flex; align-items:center; justify-content:center; height:100vh; }"></textarea>
+        </div>
+      </div>
+
+      <div class="mode-panel" id="panel-url">
+        <div class="field">
+          <label>Page URL</label>
+          <input type="url" id="url-input" placeholder="https://example.com">
+        </div>
+      </div>
+
+      <div class="mode-panel" id="panel-image">
+        <div class="field">
+          <label>Image URL</label>
+          <input type="url" id="image-url" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>Fit mode</label>
+          <select id="image-fit">
+            <option value="cover">Cover — fill frame, crop edges</option>
+            <option value="contain">Contain — whole image, background fills gaps</option>
+            <option value="fill">Fill — stretch to frame</option>
+            <option value="none">Actual size — no scaling</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mode-panel" id="panel-color">
+        <p style="color:var(--muted);font-size:11px;padding:4px 0;">Solid background fill. Set the colour below.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Background colour</div>
+      <div class="field">
+        <label>Key colour (shown behind all content — set to chroma/luma key colour)</label>
+        <div class="row">
+          <input type="color" id="bg-picker" value="#000000">
+          <input type="text" id="bg-hex" value="#000000" placeholder="#000000">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="push-btn">Push to output</button>
+
+  </div>
+
+  <div class="panel-right">
+
+    <div>
+      <div class="preview-label">Live preview</div>
+      <div class="preview-box">
+        <iframe id="preview-frame" src="/display" scrolling="no"></iframe>
+        <div class="res-badge" id="res-badge">1920×1080</div>
+      </div>
+    </div>
+
+    <a class="launch-link" href="/display" target="_blank">↗ Open display in new tab</a>
+
+    <div class="section" style="margin-bottom:0;">
+      <div class="section-label">HDMI output</div>
+      <div class="field">
+        <label>Resolution / framerate</label>
+        <select id="output-mode-select"></select>
+      </div>
+      <button class="btn btn-secondary" id="apply-btn">Apply instantly</button>
+      <div class="apply-note" id="apply-note"></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const WS_URL = `ws://${location.host}`;
+let ws, config = {};
+
+// ── Mode table ─────────────────────────────────────────────
+const MODES = [
+  // Progressive
+  { res:'1920x1080', fps:'23.98', i:false, label:'1080p23.98',           g:1, m:32 },
+  { res:'1920x1080', fps:'24',    i:false, label:'1080p24',               g:1, m:32 },
+  { res:'1920x1080', fps:'25',    i:false, label:'1080p25',               g:1, m:33 },
+  { res:'1920x1080', fps:'29.97', i:false, label:'1080p29.97',            g:1, m:34 },
+  { res:'1920x1080', fps:'30',    i:false, label:'1080p30',               g:1, m:34 },
+  { res:'1920x1080', fps:'50',    i:false, label:'1080p50',               g:1, m:31 },
+  { res:'1920x1080', fps:'59.94', i:false, label:'1080p59.94',            g:1, m:16 },
+  { res:'1920x1080', fps:'60',    i:false, label:'1080p60',               g:1, m:16 },
+  { res:'1280x720',  fps:'25',    i:false, label:'720p25',                g:1, m:61 },
+  { res:'1280x720',  fps:'29.97', i:false, label:'720p29.97',             g:1, m:62 },
+  { res:'1280x720',  fps:'50',    i:false, label:'720p50',                g:1, m:19 },
+  { res:'1280x720',  fps:'59.94', i:false, label:'720p59.94',             g:1, m:47 },
+  { res:'1280x720',  fps:'60',    i:false, label:'720p60',                g:1, m:4  },
+  { res:'720x576',   fps:'50',    i:false, label:'576p50 — PAL SD',       g:1, m:18 },
+  { res:'720x480',   fps:'59.94', i:false, label:'480p59.94 — NTSC SD',   g:1, m:3  },
+  // Interlaced
+  { res:'1920x1080', fps:'50',    i:true,  label:'1080i50',               g:1, m:20 },
+  { res:'1920x1080', fps:'59.94', i:true,  label:'1080i59.94 — NTSC',     g:1, m:5  },
+  { res:'1920x1080', fps:'60',    i:true,  label:'1080i60',               g:1, m:5  },
+  { res:'720x576',   fps:'50',    i:true,  label:'576i50 — PAL SD',       g:1, m:17 },
+  { res:'720x480',   fps:'59.94', i:true,  label:'480i59.94 — NTSC SD',   g:1, m:6  },
+];
+
+function buildOutputSelect() {
+  const sel = document.getElementById('output-mode-select');
+  const gProg = document.createElement('optgroup');
+  gProg.label = '— Progressive (apply instantly) —';
+  const gInt = document.createElement('optgroup');
+  gInt.label = '— Interlaced (requires reboot) —';
+  MODES.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = m.label;
+    (m.i ? gInt : gProg).appendChild(opt);
+  });
+  sel.appendChild(gProg);
+  sel.appendChild(gInt);
+}
+
+function syncOutputSelectToConfig(cfg) {
+  const sel = document.getElementById('output-mode-select');
+  const idx = MODES.findIndex(m =>
+    m.res === cfg.resolution &&
+    m.fps === cfg.framerate &&
+    m.i === !!cfg.interlaced
+  );
+  if (idx >= 0) sel.value = idx;
+  updateApplyBtn();
+}
+
+function updateApplyBtn() {
+  const idx = parseInt(document.getElementById('output-mode-select').value);
+  const m = MODES[idx];
+  const btn = document.getElementById('apply-btn');
+  const note = document.getElementById('apply-note');
+  const badge = document.getElementById('res-badge');
+  if (!m) return;
+  if (m.i) {
+    btn.textContent = 'Apply & Reboot';
+    note.textContent = 'Interlaced — Pi will reboot (~45s), kiosk returns automatically';
+  } else {
+    btn.textContent = 'Apply instantly';
+    note.textContent = '';
+  }
+  badge.textContent = m.res.replace('x', '×');
+}
+
+// ── WebSocket ──────────────────────────────────────────────
+function connect() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    document.getElementById('dot').classList.add('live');
+    document.getElementById('ws-label').textContent = 'connected';
+  };
+  ws.onclose = () => {
+    document.getElementById('dot').classList.remove('live');
+    document.getElementById('ws-label').textContent = 'reconnecting...';
+    setTimeout(connect, 2000);
+  };
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'config') populateUI(msg.config);
+  };
+}
+
+// ── Populate UI ────────────────────────────────────────────
+function populateUI(cfg) {
+  config = cfg;
+  document.querySelectorAll('.mode-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.mode === cfg.mode));
+  document.querySelectorAll('.mode-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'panel-' + cfg.mode));
+  document.getElementById('html-editor').value = cfg.html || '';
+  document.getElementById('css-editor').value = cfg.customCss || '';
+  document.getElementById('url-input').value = cfg.url || '';
+  document.getElementById('image-url').value = cfg.imageUrl || '';
+  document.getElementById('image-fit').value = cfg.imageFit || 'cover';
+  document.getElementById('bg-picker').value = cfg.backgroundColor || '#000000';
+  document.getElementById('bg-hex').value = cfg.backgroundColor || '#000000';
+  syncOutputSelectToConfig(cfg);
+}
+
+// ── Collect content config (no resolution) ─────────────────
+function collectConfig() {
+  const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'color';
+  return {
+    mode,
+    html: document.getElementById('html-editor').value,
+    customCss: document.getElementById('css-editor').value,
+    url: document.getElementById('url-input').value,
+    imageUrl: document.getElementById('image-url').value,
+    imageFit: document.getElementById('image-fit').value,
+    backgroundColor: document.getElementById('bg-hex').value,
+  };
+}
+
+function pushConfig() {
+  const cfg = collectConfig();
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'update', config: cfg }));
+  } else {
+    fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg) });
+  }
+  flashSaved();
+}
+
+function flashSaved() {
+  const el = document.getElementById('saved');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+// ── Apply resolution ───────────────────────────────────────
+async function applyResolution() {
+  const idx = parseInt(document.getElementById('output-mode-select').value);
+  const m = MODES[idx];
+  const btn = document.getElementById('apply-btn');
+  const note = document.getElementById('apply-note');
+  btn.disabled = true;
+  btn.textContent = 'Applying...';
+  note.textContent = '';
+
+  try {
+    const r = await fetch('/api/resolution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolution: m.res, framerate: m.fps, interlaced: m.i, hdmiGroup: m.g, hdmiMode: m.m })
+    });
+    const data = await r.json();
+    if (data.requiresReboot) {
+      btn.textContent = 'Rebooting...';
+      note.textContent = 'Rebooting — reconnecting in ~45s';
+      await fetch('/api/reboot', { method: 'POST' });
+    } else {
+      btn.textContent = 'Applied ✓';
+      setTimeout(() => { btn.textContent = 'Apply instantly'; btn.disabled = false; }, 2000);
+    }
+  } catch (e) {
+    btn.textContent = 'Error — try again';
+    note.textContent = String(e);
+    btn.disabled = false;
+  }
+}
+
+// ── Events ─────────────────────────────────────────────────
+document.querySelectorAll('.mode-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.mode).classList.add('active');
+  });
+});
+
+document.getElementById('push-btn').addEventListener('click', pushConfig);
+document.getElementById('apply-btn').addEventListener('click', applyResolution);
+document.getElementById('output-mode-select').addEventListener('change', updateApplyBtn);
+
+const bgPicker = document.getElementById('bg-picker');
+const bgHex = document.getElementById('bg-hex');
+bgPicker.addEventListener('input', () => bgHex.value = bgPicker.value);
+bgHex.addEventListener('input', () => {
+  if (/^#[0-9a-fA-F]{6}$/.test(bgHex.value)) bgPicker.value = bgHex.value;
+});
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') pushConfig();
+});
+
+buildOutputSelect();
+connect();
+</script>
+</body>
+</html>
