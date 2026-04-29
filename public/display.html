@@ -114,8 +114,13 @@ function applyConfig(cfg) {
   }
 }
 
+let wsEverConnected = false;
 function connect() {
   ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    if (wsEverConnected) { location.reload(); return; }
+    wsEverConnected = true;
+  };
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
