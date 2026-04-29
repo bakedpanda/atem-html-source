@@ -181,7 +181,7 @@ if [[ -f "${REPO_DIR}/config.json" ]]; then
 else
 tee "${REPO_DIR}/config.json" > /dev/null <<EOF
 {
-  "mode": "idle",
+  "mode": "color",
   "html": "",
   "customCss": "",
   "url": "",
@@ -190,7 +190,8 @@ tee "${REPO_DIR}/config.json" > /dev/null <<EOF
   "backgroundColor": "#000000",
   "resolution": "${DEFAULT_RES}",
   "framerate": "${DEFAULT_FPS}",
-  "interlaced": false
+  "interlaced": false,
+  "showIdle": true
 }
 EOF
 fi

@@ -21,7 +21,8 @@ const DEFAULT_CONFIG = {
   backgroundColor: '#000000',
   resolution: '1920x1080',
   framerate: '25',
-  interlaced: false
+  interlaced: false,
+  showIdle: true
 };
 
 function loadConfig() {

@@ -411,9 +411,9 @@ function clearMode() {
 
 document.getElementById('dismiss-idle-btn').addEventListener('click', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'update', config: { mode: 'color' } }));
+    ws.send(JSON.stringify({ type: 'update', config: { showIdle: false } }));
   } else {
-    fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'color' }) });
+    fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ showIdle: false }) });
   }
 });
 
