@@ -67,6 +67,11 @@
 <script>
 const WS_URL = `ws://${location.host}`;
 let ws, reconnectTimer;
+let adminUrl = `http://${location.hostname}:${location.port || 3000}`;
+fetch('/api/info').then(r => r.json()).then(info => {
+  adminUrl = `http://${info.hostname}.local:${info.port}`;
+  document.getElementById('idle-url').textContent = adminUrl;
+}).catch(() => {});
 
 function scaleCanvas() {
   const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
@@ -111,7 +116,7 @@ function applyConfig(cfg) {
   }
 
   if (cfg.showIdle !== false) {
-    document.getElementById('idle-url').textContent = `${location.protocol}//${location.hostname}:${location.port || 3000}`;
+    document.getElementById('idle-url').textContent = adminUrl;
     idleDiv.style.display = 'flex';
   }
 }

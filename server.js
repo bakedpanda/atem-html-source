@@ -4,6 +4,7 @@ const WebSocket = require('ws');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
+const os = require('os');
 
 const app = express();
 const server = http.createServer(app);
@@ -76,6 +77,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 app.get('/api/config', (req, res) => res.json(currentConfig));
+app.get('/api/info', (req, res) => res.json({ hostname: os.hostname(), port: PORT }));
 
 app.post('/api/config', (req, res) => {
   const body = { ...req.body };
