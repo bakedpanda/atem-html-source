@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/atem-html-source
-ExecStart=/usr/bin/node server.js
+User=USERNAME
+WorkingDirectory=REPO_DIR
+ExecStart=/usr/bin/env node server.js
 Restart=on-failure
 RestartSec=5
 Environment=NODE_ENV=production PORT=3000
