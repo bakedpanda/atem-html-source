@@ -75,6 +75,7 @@ wss.on('connection', (ws) => {
       const msg = JSON.parse(data);
 
       if (msg.type === 'updatePreview') {
+        if (!msg.config || typeof msg.config !== 'object') return;
         const update = {};
         CONTENT_FIELDS.forEach(k => { if (msg.config[k] !== undefined) update[k] = msg.config[k]; });
         previewConfig = { ...previewConfig, ...update };
@@ -94,14 +95,16 @@ wss.on('connection', (ws) => {
         broadcast({ type: 'programUpdate', config: programConfig });
 
       } else if (msg.type === 'clearPreview') {
-        CONTENT_FIELDS.forEach(k => { previewConfig[k] = DEFAULT_CONFIG[k]; });
+        const reset = {};
+        CONTENT_FIELDS.forEach(k => { reset[k] = DEFAULT_CONFIG[k]; });
+        previewConfig = { ...previewConfig, ...reset };
         broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
 
       } else if (msg.type === 'updateGlobal') {
+        if (!msg.config || typeof msg.config !== 'object') return;
         const allowed = ['showIdle', 'colourPresets', 'contentPresets'];
         const update = {};
         allowed.forEach(k => { if (msg.config[k] !== undefined) update[k] = msg.config[k]; });
-        if (msg.config.framerate != null) update.framerate = String(msg.config.framerate);
         programConfig = { ...programConfig, ...update };
         saveConfig(programConfig);
         broadcast({ type: 'programUpdate', config: programConfig });
