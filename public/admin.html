@@ -321,6 +321,7 @@ function populateUI(cfg) {
   document.getElementById('image-fit').value = cfg.imageFit || 'cover';
   document.getElementById('bg-picker').value = cfg.backgroundColor || '#000000';
   document.getElementById('bg-hex').value = cfg.backgroundColor || '#000000';
+  document.getElementById('dismiss-idle-btn').textContent = cfg.showIdle === false ? 'Show admin URL' : 'Hide admin URL';
   syncOutputSelectToConfig(cfg);
 }
 
@@ -410,10 +411,11 @@ function clearMode() {
 }
 
 document.getElementById('dismiss-idle-btn').addEventListener('click', () => {
+  const next = config.showIdle === false;
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'update', config: { showIdle: false } }));
+    ws.send(JSON.stringify({ type: 'update', config: { showIdle: next } }));
   } else {
-    fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ showIdle: false }) });
+    fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ showIdle: next }) });
   }
 });
 
