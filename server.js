@@ -23,7 +23,10 @@ const DEFAULT_CONFIG = {
   resolution: '1920x1080',
   framerate: '25',
   interlaced: false,
-  showIdle: true
+  showIdle: true,
+  urlHistory: [],
+  colourPresets: [],
+  contentPresets: [],
 };
 
 function loadConfig() {
