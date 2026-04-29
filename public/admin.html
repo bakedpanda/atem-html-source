@@ -561,15 +561,66 @@ connect();
 
 // Stubs — implemented in subsequent tasks
 function renderPreviewIframe(cfg) { /* Task 7 */ }
-function renderProgramIframe(cfg) { /* Task 6 */ }
+function buildConfigDoc(cfg) {
+  if (cfg.mode === 'url' && cfg.url) {
+    return null; // use src= instead of srcdoc
+  }
+  const bg = cfg.backgroundColor || '#000000';
+  const css = cfg.customCss || '';
+  const body = cfg.mode === 'html' ? (cfg.html || '') :
+               cfg.mode === 'image' && cfg.imageUrl ?
+                 `<img src="${cfg.imageUrl}" style="width:100%;height:100%;object-fit:${cfg.imageFit||'cover'};display:block;">` : '';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;overflow:hidden;background:${bg};}${css}</style></head><body>${body}</body></html>`;
+}
+
+function applyConfigToIframe(cfg, iframe) {
+  if (cfg.mode === 'url' && cfg.url) {
+    if (iframe.src !== cfg.url) iframe.src = cfg.url;
+    iframe.removeAttribute('srcdoc');
+  } else {
+    const doc = buildConfigDoc(cfg);
+    if (doc !== null) iframe.srcdoc = doc;
+  }
+}
+
+function scaleMonitor(boxId, frameId) {
+  const box = document.getElementById(boxId);
+  const frame = document.getElementById(frameId);
+  if (!box || !frame) return;
+  const scale = box.clientWidth / 1920;
+  frame.style.transform = `scale(${scale})`;
+}
+
+function scaleAllMonitors() {
+  scaleMonitor('preview-box', 'preview-frame');
+  scaleMonitor('program-box', 'program-frame');
+}
+
+function renderProgramIframe(cfg) {
+  applyConfigToIframe(cfg, document.getElementById('program-frame'));
+  scaleMonitor('program-box', 'program-frame');
+}
+
 function populateEditorFromPreview(cfg) { /* Task 8 */ }
 function populateColourFields(hex) { /* Task 9 */ }
 function renderSwatches(presets) { /* Task 9 */ }
 function renderPresets(presets) { /* Task 11 */ }
 function populateUrlHistory(history) { /* Task 10 */ }
-function updateLiveStatus(cfg) { /* Task 6 */ }
+
+function updateLiveStatus(cfg) {
+  const el = document.getElementById('live-content');
+  let summary = '—';
+  if (cfg.mode === 'html') summary = `html · ${(cfg.html || '').slice(0, 60)}`;
+  else if (cfg.mode === 'url') summary = `url · ${cfg.url || ''}`;
+  else if (cfg.mode === 'image') summary = `img · ${cfg.imageUrl || ''}`;
+  else if (cfg.mode === 'color') summary = `colour · ${cfg.backgroundColor || ''}`;
+  el.textContent = summary;
+}
+
 function syncOutputSelect(cfg) { /* Task 12 */ }
 function updateShowIdleBtn(showIdle) { /* Task 9 */ }
+
+window.addEventListener('resize', scaleAllMonitors);
 </script>
 </body>
 </html>
