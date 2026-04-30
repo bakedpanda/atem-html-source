@@ -2,3 +2,5 @@ node_modules/
 config.json
 test-validation.js
 .claude/
+.superpowers/
+.worktrees/

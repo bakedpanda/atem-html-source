@@ -1,3 +1,268 @@
+# Admin Panel Redesign Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace the single-bus admin panel with a preview/program dual-bus workflow, a white/minimal visual theme, collapsible controls, URL history, colour presets, and content presets.
+
+**Architecture:** The server maintains two independent config states — `previewConfig` (staged, shown in admin preview iframe) and `programConfig` (live HDMI, shown in admin program iframe and applied to `display.html`). All WS message types are replaced. The admin panel is a complete HTML rewrite; `display.html` gets a minimal update to respond to the new message type.
+
+**Tech Stack:** Node.js/Express, WebSocket (`ws`), vanilla JS, CSS custom properties, `localStorage` for UI state.
+
+---
+
+## File Map
+
+| File | Action | Responsibility |
+|---|---|---|
+| `server.js` | Modify | Dual bus state, new WS message handlers, new DEFAULT_CONFIG fields |
+| `public/display.html` | Modify | Respond to `programUpdate` / `init` instead of `config` |
+| `public/admin.html` | Full rewrite | New layout, dual bus iframes, all controls |
+
+---
+
+## Task 1: Extend server config schema
+
+**Files:**
+- Modify: `server.js:15-27`
+
+- [ ] **Step 1: Add new fields to DEFAULT_CONFIG**
+
+Replace the `DEFAULT_CONFIG` block in `server.js` (lines 15–27):
+
+```js
+const DEFAULT_CONFIG = {
+  mode: 'color',
+  html: '<h1 style="color:white;font-family:sans-serif;font-size:80px;margin:0;">Live</h1>',
+  customCss: 'body { background: transparent; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }',
+  url: '',
+  imageUrl: '',
+  imageFit: 'cover',
+  backgroundColor: '#000000',
+  resolution: '1920x1080',
+  framerate: '25',
+  interlaced: false,
+  showIdle: true,
+  urlHistory: [],
+  colourPresets: [],
+  contentPresets: [],
+};
+```
+
+- [ ] **Step 2: Verify server starts cleanly**
+
+```bash
+node server.js
+```
+
+Expected: server starts, prints admin/display URLs, no errors.
+
+- [ ] **Step 3: Verify new fields appear in config response**
+
+```bash
+curl http://localhost:3000/api/config
+```
+
+Expected: JSON includes `"urlHistory":[]`, `"colourPresets":[]`, `"contentPresets":[]`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add server.js
+git commit -m "feat: extend config schema with urlHistory, colourPresets, contentPresets"
+```
+
+---
+
+## Task 2: Server — dual bus architecture
+
+**Files:**
+- Modify: `server.js:48-74` (state + WS handler)
+
+The content fields that flow through the preview/program bus are distinct from global settings (resolution, framerate, showIdle, urlHistory, etc.).
+
+- [ ] **Step 1: Add the CONTENT_FIELDS constant and split state**
+
+Replace lines 48–56 in `server.js` (the `currentConfig` declaration and `broadcast` function):
+
+```js
+const CONTENT_FIELDS = ['mode', 'html', 'customCss', 'url', 'imageUrl', 'imageFit', 'backgroundColor'];
+
+function pickContent(cfg) {
+  const out = {};
+  CONTENT_FIELDS.forEach(k => { out[k] = cfg[k]; });
+  return out;
+}
+
+let programConfig = loadConfig();
+let previewConfig = { ...programConfig };
+
+function broadcast(message) {
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(message));
+    }
+  });
+}
+```
+
+- [ ] **Step 2: Replace the WS connection handler**
+
+Replace the entire `wss.on('connection', ...)` block (lines 58–74):
+
+```js
+wss.on('connection', (ws) => {
+  ws.send(JSON.stringify({ type: 'init', previewConfig, programConfig }));
+
+  ws.on('message', (data) => {
+    try {
+      const msg = JSON.parse(data);
+
+      if (msg.type === 'updatePreview') {
+        const update = {};
+        CONTENT_FIELDS.forEach(k => { if (msg.config[k] !== undefined) update[k] = msg.config[k]; });
+        previewConfig = { ...previewConfig, ...update };
+
+        // Append URL to history when URL mode is pushed to preview
+        if (msg.config.mode === 'url' && msg.config.url) {
+          const h = [msg.config.url, ...(programConfig.urlHistory || []).filter(u => u !== msg.config.url)].slice(0, 20);
+          programConfig = { ...programConfig, urlHistory: h };
+          saveConfig(programConfig);
+        }
+
+        broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
+
+      } else if (msg.type === 'cut') {
+        programConfig = { ...programConfig, ...pickContent(previewConfig) };
+        saveConfig(programConfig);
+        broadcast({ type: 'programUpdate', config: programConfig });
+
+      } else if (msg.type === 'clearPreview') {
+        CONTENT_FIELDS.forEach(k => { previewConfig[k] = DEFAULT_CONFIG[k]; });
+        broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
+
+      } else if (msg.type === 'updateGlobal') {
+        const allowed = ['showIdle', 'colourPresets', 'contentPresets'];
+        const update = {};
+        allowed.forEach(k => { if (msg.config[k] !== undefined) update[k] = msg.config[k]; });
+        if (msg.config.framerate != null) update.framerate = String(msg.config.framerate);
+        programConfig = { ...programConfig, ...update };
+        saveConfig(programConfig);
+        broadcast({ type: 'programUpdate', config: programConfig });
+      }
+
+    } catch (e) {
+      console.error('WS error:', e.message);
+    }
+  });
+});
+```
+
+- [ ] **Step 3: Update the REST endpoints to use programConfig**
+
+Replace lines 79–89 in `server.js`:
+
+```js
+app.get('/api/config', (req, res) => res.json(programConfig));
+app.get('/api/info', (req, res) => res.json({ hostname: os.hostname(), port: PORT }));
+
+app.post('/api/config', (req, res) => {
+  const body = { ...req.body };
+  if (body.framerate != null) body.framerate = String(body.framerate);
+  programConfig = { ...programConfig, ...body };
+  saveConfig(programConfig);
+  broadcast({ type: 'programUpdate', config: programConfig });
+  res.json({ ok: true, config: programConfig });
+});
+```
+
+Also update the `/api/resolution` handler (line 101–103) to use `programConfig`:
+
+```js
+  programConfig = { ...programConfig, resolution, framerate, interlaced: !!interlaced };
+  saveConfig(programConfig);
+  broadcast({ type: 'programUpdate', config: programConfig });
+```
+
+- [ ] **Step 4: Verify with wscat or browser console**
+
+```bash
+node server.js
+```
+
+Open browser console at `http://localhost:3000/display`, run:
+```js
+const ws = new WebSocket('ws://localhost:3000');
+ws.onmessage = e => console.log(JSON.parse(e.data));
+```
+
+Expected: first message is `{ type: 'init', previewConfig: {...}, programConfig: {...} }`.
+
+Then send:
+```js
+ws.send(JSON.stringify({ type: 'updatePreview', config: { mode: 'color', backgroundColor: '#ff0000' } }));
+```
+Expected: broadcast with `type: 'previewUpdate'`, previewConfig.backgroundColor = '#ff0000'.
+
+```js
+ws.send(JSON.stringify({ type: 'cut' }));
+```
+Expected: broadcast with `type: 'programUpdate'`, programConfig.backgroundColor = '#ff0000'.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add server.js
+git commit -m "feat: dual bus architecture — previewConfig + programConfig, new WS message types"
+```
+
+---
+
+## Task 3: Update display.html for dual bus
+
+**Files:**
+- Modify: `public/display.html:132-136` (WS message handler), `public/display.html:147` (initial fetch)
+
+- [ ] **Step 1: Update WS message handler**
+
+In `display.html`, replace the `ws.onmessage` handler (lines 132–137):
+
+```js
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'programUpdate') applyConfig(msg.config);
+      if (msg.type === 'init') applyConfig(msg.programConfig);
+    } catch {}
+  };
+```
+
+- [ ] **Step 2: Verify display.html still works**
+
+Load `http://localhost:3000/display` in a browser. It should show the current program output.
+
+Open another tab to `http://localhost:3000` (the old admin), push a change. Expected: display.html does NOT update (old admin still sends `update` type which the new server ignores gracefully — the server will just ignore unknown message types).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add public/display.html
+git commit -m "fix: display.html responds to programUpdate and init messages only"
+```
+
+---
+
+## Task 4: Admin — HTML structure and CSS
+
+**Files:**
+- Rewrite: `public/admin.html`
+
+This task creates the complete HTML and CSS with placeholder content (no JavaScript yet). The page should look correct visually.
+
+- [ ] **Step 1: Write the new admin.html (HTML + CSS only)**
+
+Replace the entire contents of `public/admin.html`:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -126,22 +391,6 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
   padding: 6px 0; width: 100%; text-align: center; cursor: pointer;
 }
 .preview-send-btn:hover { border-color: #444; color: #aaa; }
-.fade-row {
-  display: flex; align-items: center; gap: 4px; width: 100%;
-}
-.fade-btn {
-  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
-  border-radius: 4px; font-family: var(--font); font-size: 9px;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 6px 0; flex: 1; text-align: center; cursor: pointer;
-}
-.fade-btn:hover { border-color: #444; color: #aaa; }
-.fade-dur {
-  width: 36px; height: 26px; background: var(--bg-input); border: 1px solid var(--border);
-  color: var(--text); font-family: var(--font); font-size: 10px;
-  border-radius: 3px; text-align: center; padding: 0 2px;
-}
-.fade-unit { font-size: 9px; color: var(--text-muted); flex-shrink: 0; }
 
 /* ── Editor row ─────────────────────────────────── */
 .editor-row {
@@ -380,11 +629,6 @@ select { padding: 4px 6px; height: 26px; }
 
     <div class="cut-col">
       <button class="cut-btn" id="cut-btn">CUT</button>
-      <div class="fade-row">
-        <button class="fade-btn" id="fade-btn">Fade</button>
-        <input type="number" class="fade-dur" id="fade-dur" value="1" min="0.1" max="30" step="0.1">
-        <span class="fade-unit">s</span>
-      </div>
       <button class="preview-send-btn" id="preview-btn">Preview</button>
     </div>
 
@@ -520,41 +764,45 @@ select { padding: 4px 6px; height: 26px; }
 </div>
 
 <script>
+// JavaScript added in subsequent tasks
+</script>
+</body>
+</html>
+```
+
+- [ ] **Step 2: Verify the page renders correctly**
+
+Load `http://localhost:3000`. The page should:
+- Show the white/minimal header with "ATEM / HTML Source"
+- Show the bus row with two 16:9 monitor boxes and a CUT/Preview column
+- Show the editor column with 3 mode tabs and a Clear preview button
+- Show the controls column with collapsible section headers (clicking does nothing yet)
+- Be visually correct at full width and narrower widths
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin panel — new HTML structure and white/minimal CSS"
+```
+
+---
+
+## Task 5: Admin — WebSocket connection and init handling
+
+**Files:**
+- Modify: `public/admin.html` — replace the empty `<script>` tag
+
+- [ ] **Step 1: Add WebSocket and init handling to the script block**
+
+Replace `<script>\n// JavaScript added in subsequent tasks\n</script>` with:
+
+```html
+<script>
 const WS_URL = `ws://${location.host}`;
 let ws;
 let previewConfig = {};
 let programConfig = {};
-
-const BUILTIN_SWATCHES = [
-  { hex: '#000000', name: 'Black' },
-  { hex: '#00b140', name: 'BMD Green' },
-  { hex: '#ffffff', name: 'White' },
-  { hex: '#0000ff', name: 'Blue' },
-  { hex: '#ff0000', name: 'Red' },
-];
-
-const MODES = [
-  { res:'1920x1080', fps:'23.98', i:false, label:'1080p23.98', g:1, m:32 },
-  { res:'1920x1080', fps:'24',    i:false, label:'1080p24',    g:1, m:32 },
-  { res:'1920x1080', fps:'25',    i:false, label:'1080p25',    g:1, m:33 },
-  { res:'1920x1080', fps:'29.97', i:false, label:'1080p29.97', g:1, m:34 },
-  { res:'1920x1080', fps:'30',    i:false, label:'1080p30',    g:1, m:34 },
-  { res:'1920x1080', fps:'50',    i:false, label:'1080p50',    g:1, m:31 },
-  { res:'1920x1080', fps:'59.94', i:false, label:'1080p59.94', g:1, m:16 },
-  { res:'1920x1080', fps:'60',    i:false, label:'1080p60',    g:1, m:16 },
-  { res:'1280x720',  fps:'25',    i:false, label:'720p25',     g:1, m:61 },
-  { res:'1280x720',  fps:'29.97', i:false, label:'720p29.97',  g:1, m:62 },
-  { res:'1280x720',  fps:'50',    i:false, label:'720p50',     g:1, m:19 },
-  { res:'1280x720',  fps:'59.94', i:false, label:'720p59.94',  g:1, m:47 },
-  { res:'1280x720',  fps:'60',    i:false, label:'720p60',     g:1, m:4  },
-  { res:'720x576',   fps:'50',    i:false, label:'576p50 — PAL SD',      g:1, m:18 },
-  { res:'720x480',   fps:'59.94', i:false, label:'480p59.94 — NTSC SD',  g:1, m:3  },
-  { res:'1920x1080', fps:'50',    i:true,  label:'1080i50',               g:1, m:20 },
-  { res:'1920x1080', fps:'59.94', i:true,  label:'1080i59.94 — NTSC',    g:1, m:5  },
-  { res:'1920x1080', fps:'60',    i:true,  label:'1080i60',               g:1, m:5  },
-  { res:'720x576',   fps:'50',    i:true,  label:'576i50 — PAL SD',       g:1, m:17 },
-  { res:'720x480',   fps:'59.94', i:true,  label:'480i59.94 — NTSC SD',  g:1, m:6  },
-];
 
 // ── WebSocket ─────────────────────────────────────
 function connect() {
@@ -593,7 +841,6 @@ function connect() {
     } else if (msg.type === 'previewUpdate') {
       previewConfig = msg.config;
       renderPreviewIframe(previewConfig);
-      populateEditorFromPreview(previewConfig, { switchTab: msg.switchTab !== false });
       if (msg.urlHistory) populateUrlHistory(msg.urlHistory);
     } else if (msg.type === 'programUpdate') {
       programConfig = msg.config;
@@ -611,13 +858,51 @@ function send(msg) {
 }
 
 connect();
-buildOutputSelect();
+</script>
+```
 
-// ── Iframe rendering ──────────────────────────────
-function renderPreviewIframe(cfg) {
-  applyConfigToIframe(cfg, document.getElementById('preview-frame'));
-  scaleMonitor('preview-box', 'preview-frame');
-}
+Stub functions referenced above (add after `connect();`):
+
+```js
+function renderPreviewIframe(cfg) { /* Task 7 */ }
+function renderProgramIframe(cfg) { /* Task 6 */ }
+function populateEditorFromPreview(cfg) { /* Task 8 */ }
+function populateColourFields(hex) { /* Task 9 */ }
+function renderSwatches(presets) { /* Task 9 */ }
+function renderPresets(presets) { /* Task 11 */ }
+function populateUrlHistory(history) { /* Task 10 */ }
+function updateLiveStatus(cfg) { /* Task 6 */ }
+function syncOutputSelect(cfg) { /* Task 12 */ }
+function updateShowIdleBtn(showIdle) { /* Task 9 */ }
+```
+
+- [ ] **Step 2: Verify WebSocket connects**
+
+Load `http://localhost:3000`. Expected:
+- Status dot turns green
+- Label reads "connected"
+
+Open browser console — no errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin — WebSocket connection and init message handling"
+```
+
+---
+
+## Task 6: Admin — Program iframe and live status strip
+
+**Files:**
+- Modify: `public/admin.html` — implement `renderProgramIframe` and `updateLiveStatus`
+
+- [ ] **Step 1: Add iframe scaling helper and renderProgramIframe**
+
+Add these functions (replace the stubs from Task 5):
+
+```js
 function buildConfigDoc(cfg) {
   if (cfg.mode === 'url' && cfg.url) {
     return null; // use src= instead of srcdoc
@@ -648,31 +933,173 @@ function scaleMonitor(boxId, frameId) {
   frame.style.transform = `scale(${scale})`;
 }
 
-function scaleAllMonitors() {
-  scaleMonitor('preview-box', 'preview-frame');
-  scaleMonitor('program-box', 'program-frame');
-}
-
 function renderProgramIframe(cfg) {
   applyConfigToIframe(cfg, document.getElementById('program-frame'));
   scaleMonitor('program-box', 'program-frame');
 }
 
-function populateEditorFromPreview(cfg, { switchTab = true } = {}) {
+function updateLiveStatus(cfg) {
+  const el = document.getElementById('live-content');
+  let summary = '—';
+  if (cfg.mode === 'html') summary = `html · ${(cfg.html || '').slice(0, 60)}`;
+  else if (cfg.mode === 'url') summary = `url · ${cfg.url || ''}`;
+  else if (cfg.mode === 'image') summary = `img · ${cfg.imageUrl || ''}`;
+  else if (cfg.mode === 'color') summary = `colour · ${cfg.backgroundColor || ''}`;
+  el.textContent = summary;
+}
+```
+
+Also add a resize listener to keep monitor iframes scaled:
+
+```js
+function scaleAllMonitors() {
+  scaleMonitor('preview-box', 'preview-frame');
+  scaleMonitor('program-box', 'program-frame');
+}
+window.addEventListener('resize', scaleAllMonitors);
+```
+
+- [ ] **Step 2: Verify program iframe renders**
+
+Load `http://localhost:3000`. The right monitor box should render the current program config. The live status strip below it should show `LIVE · colour · #000000` (or whatever is live).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin — program iframe and live status strip"
+```
+
+---
+
+## Task 7: Admin — Preview iframe and Preview/CUT buttons
+
+**Files:**
+- Modify: `public/admin.html` — implement `renderPreviewIframe`, wire CUT and Preview buttons
+
+- [ ] **Step 1: Implement renderPreviewIframe**
+
+Replace the stub:
+
+```js
+function renderPreviewIframe(cfg) {
+  applyConfigToIframe(cfg, document.getElementById('preview-frame'));
+  scaleMonitor('preview-box', 'preview-frame');
+}
+```
+
+- [ ] **Step 2: Add collectPreviewConfig and wire the buttons**
+
+```js
+function collectPreviewConfig() {
+  const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'color';
+  return {
+    mode,
+    html: document.getElementById('html-editor').value,
+    customCss: document.getElementById('css-editor').value,
+    url: document.getElementById('url-input').value,
+    imageUrl: document.getElementById('image-url').value,
+    imageFit: document.getElementById('image-fit').value,
+    backgroundColor: document.getElementById('bg-hex').value || '#000000',
+  };
+}
+
+document.getElementById('preview-btn').addEventListener('click', () => {
+  send({ type: 'updatePreview', config: collectPreviewConfig() });
+});
+
+document.getElementById('cut-btn').addEventListener('click', () => {
+  send({ type: 'cut' });
+});
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  send({ type: 'clearPreview' });
+});
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    send({ type: 'updatePreview', config: collectPreviewConfig() });
+  }
+});
+```
+
+- [ ] **Step 3: Verify the flow**
+
+1. Type `<h1 style="color:red">Hello</h1>` in the HTML editor
+2. Click **Preview** — preview iframe should show the red heading
+3. Click **CUT** — program iframe should update to match; live status strip should update
+4. Click **Clear preview** — preview iframe should go back to black
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin — preview iframe, Preview and CUT buttons wired"
+```
+
+---
+
+## Task 8: Admin — Mode tabs and editor population
+
+**Files:**
+- Modify: `public/admin.html` — wire mode tabs, implement `populateEditorFromPreview`
+
+- [ ] **Step 1: Wire mode tab switching**
+
+```js
+document.querySelectorAll('.mode-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.mode).classList.add('active');
+  });
+});
+```
+
+- [ ] **Step 2: Implement populateEditorFromPreview**
+
+Replace the stub:
+
+```js
+function populateEditorFromPreview(cfg) {
   const mode = cfg.mode || 'color';
   const activeMode = ['html', 'url', 'image'].includes(mode) ? mode : 'html';
-  if (switchTab) {
-    document.querySelectorAll('.mode-tab').forEach(t =>
-      t.classList.toggle('active', t.dataset.mode === activeMode));
-    document.querySelectorAll('.mode-panel').forEach(p =>
-      p.classList.toggle('active', p.id === 'panel-' + activeMode));
-  }
+  document.querySelectorAll('.mode-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.mode === activeMode));
+  document.querySelectorAll('.mode-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'panel-' + activeMode));
   document.getElementById('html-editor').value = cfg.html || '';
   document.getElementById('css-editor').value = cfg.customCss || '';
   document.getElementById('url-input').value = cfg.url || '';
   document.getElementById('image-url').value = cfg.imageUrl || '';
   document.getElementById('image-fit').value = cfg.imageFit || 'cover';
 }
+```
+
+- [ ] **Step 3: Verify tab switching and population**
+
+1. Switch to URL tab — URL input should appear
+2. Switch to Image tab — image URL and fit select should appear
+3. Open the page fresh — tabs and editors should reflect the current previewConfig
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin — mode tabs and editor population"
+```
+
+---
+
+## Task 9: Admin — Background colour section
+
+**Files:**
+- Modify: `public/admin.html` — colour conversions, input wiring, swatches, show/hide URL
+
+- [ ] **Step 1: Add colour conversion functions**
+
+```js
 function rgbToHex(r, g, b) {
   return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
 }
@@ -699,7 +1126,13 @@ function hslToRgb(h, s, l) {
   const f = n => Math.round((l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)))) * 255);
   return { r: f(0), g: f(8), b: f(4) };
 }
+```
 
+- [ ] **Step 2: Implement populateColourFields**
+
+Replace the stub:
+
+```js
 function populateColourFields(hex) {
   if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
   const { r, g, b } = hexToRgb(hex);
@@ -719,7 +1152,11 @@ function highlightActiveSwatch(hex) {
   document.querySelectorAll('.swatch').forEach(s =>
     s.classList.toggle('active', s.dataset.hex === hex));
 }
+```
 
+- [ ] **Step 3: Wire colour inputs**
+
+```js
 document.getElementById('bg-hex').addEventListener('input', () => {
   let val = document.getElementById('bg-hex').value.trim();
   if (/^[0-9a-fA-F]{6}$/.test(val)) val = '#' + val;
@@ -740,6 +1177,20 @@ document.getElementById('bg-hex').addEventListener('input', () => {
   const { r, g, b } = hslToRgb(h, s, l);
   populateColourFields(rgbToHex(r, g, b));
 }));
+```
+
+- [ ] **Step 4: Implement renderSwatches with built-ins and custom**
+
+Replace the stub:
+
+```js
+const BUILTIN_SWATCHES = [
+  { hex: '#000000', name: 'Black' },
+  { hex: '#00b140', name: 'BMD Green' },
+  { hex: '#ffffff', name: 'White' },
+  { hex: '#0000ff', name: 'Blue' },
+  { hex: '#ff0000', name: 'Red' },
+];
 
 function renderSwatches(customPresets) {
   const row = document.getElementById('swatch-row');
@@ -769,6 +1220,84 @@ function renderSwatches(customPresets) {
   row.appendChild(addBtn);
   highlightActiveSwatch(document.getElementById('bg-hex').value);
 }
+```
+
+- [ ] **Step 5: Implement updateShowIdleBtn**
+
+Replace the stub:
+
+```js
+function updateShowIdleBtn(showIdle) {
+  document.getElementById('show-idle-btn').textContent =
+    showIdle === false ? 'Show web UI URL' : 'Hide web UI URL';
+}
+
+document.getElementById('show-idle-btn').addEventListener('click', () => {
+  send({ type: 'updateGlobal', config: { showIdle: programConfig.showIdle === false } });
+});
+```
+
+- [ ] **Step 6: Verify colour section**
+
+1. Enter `ff0000` in hex input — should auto-prepend `#`, turn swatch red, populate RGB (255,0,0) and HSL (0,100,50)
+2. Click a built-in colour swatch — all inputs should update
+3. Toggle "Hide web UI URL" — HDMI display should show/hide the URL overlay
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin — background colour inputs, swatches, show/hide URL toggle"
+```
+
+---
+
+## Task 10: Admin — URL history
+
+**Files:**
+- Modify: `public/admin.html` — implement `populateUrlHistory`
+
+- [ ] **Step 1: Implement populateUrlHistory**
+
+Replace the stub:
+
+```js
+function populateUrlHistory(history) {
+  const dl = document.getElementById('url-history-list');
+  dl.innerHTML = '';
+  (history || []).forEach(url => {
+    const opt = document.createElement('option');
+    opt.value = url;
+    dl.appendChild(opt);
+  });
+}
+```
+
+- [ ] **Step 2: Verify URL history**
+
+1. Switch to URL tab, enter `https://example.com`, click **Preview**
+2. Clear the input, click the input — `https://example.com` should appear in the dropdown
+3. Enter a second URL, click Preview — both should appear in the dropdown (newest first)
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin — URL history datalist"
+```
+
+---
+
+## Task 11: Admin — Content presets
+
+**Files:**
+- Modify: `public/admin.html` — implement `renderPresets`, save form, load/delete
+
+- [ ] **Step 1: Implement renderPresets**
+
+Replace the stub:
+
+```js
 const MODE_ICON = { html: '‹›', url: '🔗', image: '🖼', color: '🎨' };
 
 function renderPresets(presets) {
@@ -844,7 +1373,11 @@ function loadPreset(preset) {
   populateEditorFromPreview({ ...previewConfig, ...partial });
   if (partial.backgroundColor) populateColourFields(partial.backgroundColor);
 }
+```
 
+- [ ] **Step 2: Wire the save form**
+
+```js
 document.getElementById('save-preset-btn').addEventListener('click', () => {
   document.getElementById('preset-form').classList.add('open');
   document.getElementById('preset-name').focus();
@@ -887,25 +1420,53 @@ document.getElementById('preset-save-confirm').addEventListener('click', () => {
   document.getElementById('preset-chk-bg').checked = false;
   document.getElementById('preset-chk-css').checked = false;
 });
-function populateUrlHistory(history) {
-  const dl = document.getElementById('url-history-list');
-  dl.innerHTML = '';
-  (history || []).forEach(url => {
-    const opt = document.createElement('option');
-    opt.value = url;
-    dl.appendChild(opt);
-  });
-}
+```
 
-function updateLiveStatus(cfg) {
-  const el = document.getElementById('live-content');
-  let summary = '—';
-  if (cfg.mode === 'html') summary = `html · ${(cfg.html || '').slice(0, 60)}`;
-  else if (cfg.mode === 'url') summary = `url · ${cfg.url || ''}`;
-  else if (cfg.mode === 'image') summary = `img · ${cfg.imageUrl || ''}`;
-  else if (cfg.mode === 'color') summary = `colour · ${cfg.backgroundColor || ''}`;
-  el.textContent = summary;
-}
+- [ ] **Step 3: Verify presets**
+
+1. Set some HTML content, click **+ Save current as preset**, name it "Test", tick Content, click Save — preset should appear in list with `‹›` icon and `html` tag
+2. Clear the editor, click **Load** on the preset — editor should repopulate and previewConfig should update
+3. Click **×** — preset should be removed from the list
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin — content presets (save with checkboxes, load, delete)"
+```
+
+---
+
+## Task 12: Admin — HDMI output and System sections
+
+**Files:**
+- Modify: `public/admin.html` — MODES table, output select, apply button, reboot/shutdown
+
+- [ ] **Step 1: Add the MODES table and buildOutputSelect**
+
+```js
+const MODES = [
+  { res:'1920x1080', fps:'23.98', i:false, label:'1080p23.98', g:1, m:32 },
+  { res:'1920x1080', fps:'24',    i:false, label:'1080p24',    g:1, m:32 },
+  { res:'1920x1080', fps:'25',    i:false, label:'1080p25',    g:1, m:33 },
+  { res:'1920x1080', fps:'29.97', i:false, label:'1080p29.97', g:1, m:34 },
+  { res:'1920x1080', fps:'30',    i:false, label:'1080p30',    g:1, m:34 },
+  { res:'1920x1080', fps:'50',    i:false, label:'1080p50',    g:1, m:31 },
+  { res:'1920x1080', fps:'59.94', i:false, label:'1080p59.94', g:1, m:16 },
+  { res:'1920x1080', fps:'60',    i:false, label:'1080p60',    g:1, m:16 },
+  { res:'1280x720',  fps:'25',    i:false, label:'720p25',     g:1, m:61 },
+  { res:'1280x720',  fps:'29.97', i:false, label:'720p29.97',  g:1, m:62 },
+  { res:'1280x720',  fps:'50',    i:false, label:'720p50',     g:1, m:19 },
+  { res:'1280x720',  fps:'59.94', i:false, label:'720p59.94',  g:1, m:47 },
+  { res:'1280x720',  fps:'60',    i:false, label:'720p60',     g:1, m:4  },
+  { res:'720x576',   fps:'50',    i:false, label:'576p50 — PAL SD',      g:1, m:18 },
+  { res:'720x480',   fps:'59.94', i:false, label:'480p59.94 — NTSC SD',  g:1, m:3  },
+  { res:'1920x1080', fps:'50',    i:true,  label:'1080i50',               g:1, m:20 },
+  { res:'1920x1080', fps:'59.94', i:true,  label:'1080i59.94 — NTSC',    g:1, m:5  },
+  { res:'1920x1080', fps:'60',    i:true,  label:'1080i60',               g:1, m:5  },
+  { res:'720x576',   fps:'50',    i:true,  label:'576i50 — PAL SD',       g:1, m:17 },
+  { res:'720x480',   fps:'59.94', i:true,  label:'480i59.94 — NTSC SD',  g:1, m:6  },
+];
 
 function buildOutputSelect() {
   const sel = document.getElementById('output-mode-select');
@@ -969,7 +1530,11 @@ async function applyResolution() {
 }
 
 document.getElementById('apply-btn').addEventListener('click', applyResolution);
+```
 
+- [ ] **Step 2: Wire reboot and shutdown buttons**
+
+```js
 async function systemAction(action) {
   const note = document.getElementById('system-note');
   document.getElementById('reboot-btn').disabled = true;
@@ -984,62 +1549,33 @@ document.getElementById('reboot-btn').addEventListener('click', () => {
 document.getElementById('shutdown-btn').addEventListener('click', () => {
   if (confirm('Shut down the Pi?')) systemAction('shutdown');
 });
-function updateShowIdleBtn(showIdle) {
-  document.getElementById('show-idle-btn').textContent =
-    showIdle === false ? 'Show web UI URL' : 'Hide web UI URL';
-}
+```
 
-document.getElementById('show-idle-btn').addEventListener('click', () => {
-  send({ type: 'updateGlobal', config: { showIdle: programConfig.showIdle === false } });
-});
+- [ ] **Step 3: Call buildOutputSelect on load**
 
-window.addEventListener('resize', scaleAllMonitors);
+Add `buildOutputSelect();` immediately after the `connect();` call at the bottom of the script.
 
-function collectPreviewConfig() {
-  const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'color';
-  return {
-    mode,
-    html: document.getElementById('html-editor').value,
-    customCss: document.getElementById('css-editor').value,
-    url: document.getElementById('url-input').value,
-    imageUrl: document.getElementById('image-url').value,
-    imageFit: document.getElementById('image-fit').value,
-    backgroundColor: document.getElementById('bg-hex').value || '#000000',
-  };
-}
+- [ ] **Step 4: Verify HDMI section**
 
-document.getElementById('preview-btn').addEventListener('click', () => {
-  send({ type: 'updatePreview', config: collectPreviewConfig() });
-});
+Open the HDMI output section (click its header). The select should list all resolutions. Current resolution should be pre-selected.
 
-document.getElementById('cut-btn').addEventListener('click', () => {
-  send({ type: 'cut' });
-});
+- [ ] **Step 5: Commit**
 
-document.getElementById('fade-btn').addEventListener('click', () => {
-  const dur = Math.max(0.1, parseFloat(document.getElementById('fade-dur').value) || 1);
-  send({ type: 'cut', fadeDuration: Math.round(dur * 1000) });
-});
+```bash
+git add public/admin.html
+git commit -m "feat: admin — HDMI output and system sections"
+```
 
-document.getElementById('clear-btn').addEventListener('click', () => {
-  send({ type: 'clearPreview' });
-});
+---
 
-document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    send({ type: 'updatePreview', config: collectPreviewConfig() });
-  }
-});
+## Task 13: Admin — Collapsible sections and localStorage
 
-document.querySelectorAll('.mode-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-' + btn.dataset.mode).classList.add('active');
-  });
-});
+**Files:**
+- Modify: `public/admin.html` — section toggle JS and localStorage persistence
 
+- [ ] **Step 1: Wire section toggle buttons**
+
+```js
 const SECTION_DEFAULTS = { presets: true, bg: true, hdmi: false, system: false };
 
 function initSections() {
@@ -1060,6 +1596,52 @@ function initSections() {
 }
 
 initSections();
-</script>
-</body>
-</html>
+```
+
+- [ ] **Step 2: Verify collapse persistence**
+
+1. Collapse the Presets section, reload the page — it should remain collapsed
+2. Expand System, reload — it should remain expanded
+3. Different sections should remember their state independently
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add public/admin.html
+git commit -m "feat: admin — collapsible sections with localStorage persistence"
+```
+
+---
+
+## Self-Review
+
+**Spec coverage check:**
+
+| Spec section | Covered by |
+|---|---|
+| Dual bus architecture | Tasks 2, 3 |
+| previewConfig / programConfig split | Task 2 |
+| updatePreview / cut / clearPreview messages | Tasks 2, 7 |
+| display.html ignores previewUpdate | Task 3 |
+| Bus row layout with two iframes | Tasks 4, 6, 7 |
+| CUT button + Preview button | Task 7 |
+| Live status strip | Task 6 |
+| Clear preview button | Tasks 4, 7 |
+| Mode tabs: HTML / URL / Image (no Colour tab) | Tasks 4, 8 |
+| White/minimal theme | Task 4 |
+| Responsive breakpoints | Task 4 |
+| Collapsible controls column | Tasks 4, 13 |
+| localStorage for collapse state | Task 13 |
+| Background colour: hex/RGB/HSL inputs | Task 9 |
+| Background colour: built-in + custom swatches | Task 9 |
+| Show/Hide web UI URL toggle | Task 9 |
+| URL history (datalist, max 20) | Tasks 2, 10 |
+| Content presets (save with checkboxes) | Tasks 4, 11 |
+| Content presets (load / delete) | Task 11 |
+| HDMI output section | Task 12 |
+| System section (reboot / shutdown) | Task 12 |
+| Fit-content mode tabs (not stretched) | Task 4 |
+| Inputs bounded with max-width | Task 4 |
+| Config schema: urlHistory, colourPresets, contentPresets | Task 1 |
+
+All spec requirements are covered. No gaps found.
