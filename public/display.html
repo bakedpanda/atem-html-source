@@ -18,11 +18,12 @@
   #bg { position: absolute; inset: 0; z-index: 0; }
   #content { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
   #user-css {}
-  #url-frame {
+  .url-frame {
     width: 100%; height: 100%;
     border: none;
     background: transparent;
     display: none;
+    position: absolute; inset: 0;
   }
   #html-frame { width: 100%; height: 100%; border: none; background: transparent; display: none; }
   #image-content {
@@ -59,7 +60,8 @@
     <div id="bg"></div>
     <style id="user-css"></style>
     <div id="content">
-      <iframe id="url-frame" allowtransparency="true"></iframe>
+      <iframe id="url-frame-a" class="url-frame" allowtransparency="true"></iframe>
+      <iframe id="url-frame-b" class="url-frame" allowtransparency="true"></iframe>
       <iframe id="html-frame" allowtransparency="true"></iframe>
       <div id="image-content"><img id="image-el" src="" alt=""></div>
       <div id="idle">
@@ -94,24 +96,45 @@ function scaleCanvas() {
   canvas.style.transform = `scale(${scale})`;
 }
 
+let activeUrlSlot = 'a';
+
+function preloadForDisplay(cfg) {
+  if (cfg.mode === 'url' && cfg.url) {
+    const standby = document.getElementById('url-frame-' + (activeUrlSlot === 'a' ? 'b' : 'a'));
+    if (standby.src !== cfg.url) standby.src = cfg.url;
+  } else if (cfg.mode === 'image' && cfg.imageUrl) {
+    const img = new Image();
+    img.src = cfg.imageUrl;
+  }
+}
+
 function _applyConfig(cfg) {
   document.getElementById('bg').style.background = cfg.backgroundColor || '#000';
   document.getElementById('user-css').textContent = cfg.customCss || '';
 
-  const frame = document.getElementById('url-frame');
+  const frameA = document.getElementById('url-frame-a');
+  const frameB = document.getElementById('url-frame-b');
   const htmlFrame = document.getElementById('html-frame');
   const imgDiv = document.getElementById('image-content');
   const img = document.getElementById('image-el');
   const idleDiv = document.getElementById('idle');
 
-  frame.style.display = 'none';
+  frameA.style.display = 'none';
+  frameB.style.display = 'none';
   htmlFrame.style.display = 'none';
   imgDiv.style.display = 'none';
   idleDiv.style.display = 'none';
 
   if (cfg.mode === 'url' && cfg.url) {
-    if (frame.src !== cfg.url) frame.src = cfg.url;
-    frame.style.display = 'block';
+    const standby = document.getElementById('url-frame-' + (activeUrlSlot === 'a' ? 'b' : 'a'));
+    const active = document.getElementById('url-frame-' + activeUrlSlot);
+    if (standby.src === cfg.url) {
+      standby.style.display = 'block';
+      activeUrlSlot = activeUrlSlot === 'a' ? 'b' : 'a';
+    } else {
+      if (active.src !== cfg.url) active.src = cfg.url;
+      active.style.display = 'block';
+    }
   } else if (cfg.mode === 'html') {
     const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;overflow:hidden;background:transparent;}${cfg.customCss||''}</style></head><body>${cfg.html||''}</body></html>`;
     htmlFrame.srcdoc = doc;
@@ -150,6 +173,7 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
+      if (msg.type === 'previewUpdate') preloadForDisplay(msg.config);
       if (msg.type === 'programUpdate') applyConfig(msg.config, msg.fadeDuration);
       if (msg.type === 'init') applyConfig(msg.programConfig);
     } catch {}
