@@ -90,14 +90,17 @@ wss.on('connection', (ws) => {
         broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
 
       } else if (msg.type === 'cut') {
+        const previousProgram = pickContent(programConfig);
         programConfig = { ...programConfig, ...pickContent(previewConfig) };
         saveConfig(programConfig);
+        previewConfig = { ...previewConfig, ...previousProgram };
         const fade = msg.fadeDuration > 0 ? { fadeDuration: msg.fadeDuration } : {};
         broadcast({ type: 'programUpdate', config: programConfig, ...fade });
+        broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
 
       } else if (msg.type === 'clearPreview') {
         previewConfig = { ...previewConfig, mode: 'color', html: '', url: '', imageUrl: '', imageFit: 'cover' };
-        broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
+        broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory, switchTab: false });
 
       } else if (msg.type === 'updateGlobal') {
         if (!msg.config || typeof msg.config !== 'object') return;

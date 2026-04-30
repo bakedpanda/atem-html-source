@@ -593,7 +593,7 @@ function connect() {
     } else if (msg.type === 'previewUpdate') {
       previewConfig = msg.config;
       renderPreviewIframe(previewConfig);
-      populateEditorFromPreview(previewConfig, { switchTab: false });
+      populateEditorFromPreview(previewConfig, { switchTab: msg.switchTab !== false });
       if (msg.urlHistory) populateUrlHistory(msg.urlHistory);
     } else if (msg.type === 'programUpdate') {
       programConfig = msg.config;
