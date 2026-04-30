@@ -504,6 +504,37 @@ let ws;
 let previewConfig = {};
 let programConfig = {};
 
+const BUILTIN_SWATCHES = [
+  { hex: '#000000', name: 'Black' },
+  { hex: '#00b140', name: 'BMD Green' },
+  { hex: '#ffffff', name: 'White' },
+  { hex: '#0000ff', name: 'Blue' },
+  { hex: '#ff0000', name: 'Red' },
+];
+
+const MODES = [
+  { res:'1920x1080', fps:'23.98', i:false, label:'1080p23.98', g:1, m:32 },
+  { res:'1920x1080', fps:'24',    i:false, label:'1080p24',    g:1, m:32 },
+  { res:'1920x1080', fps:'25',    i:false, label:'1080p25',    g:1, m:33 },
+  { res:'1920x1080', fps:'29.97', i:false, label:'1080p29.97', g:1, m:34 },
+  { res:'1920x1080', fps:'30',    i:false, label:'1080p30',    g:1, m:34 },
+  { res:'1920x1080', fps:'50',    i:false, label:'1080p50',    g:1, m:31 },
+  { res:'1920x1080', fps:'59.94', i:false, label:'1080p59.94', g:1, m:16 },
+  { res:'1920x1080', fps:'60',    i:false, label:'1080p60',    g:1, m:16 },
+  { res:'1280x720',  fps:'25',    i:false, label:'720p25',     g:1, m:61 },
+  { res:'1280x720',  fps:'29.97', i:false, label:'720p29.97',  g:1, m:62 },
+  { res:'1280x720',  fps:'50',    i:false, label:'720p50',     g:1, m:19 },
+  { res:'1280x720',  fps:'59.94', i:false, label:'720p59.94',  g:1, m:47 },
+  { res:'1280x720',  fps:'60',    i:false, label:'720p60',     g:1, m:4  },
+  { res:'720x576',   fps:'50',    i:false, label:'576p50 — PAL SD',      g:1, m:18 },
+  { res:'720x480',   fps:'59.94', i:false, label:'480p59.94 — NTSC SD',  g:1, m:3  },
+  { res:'1920x1080', fps:'50',    i:true,  label:'1080i50',               g:1, m:20 },
+  { res:'1920x1080', fps:'59.94', i:true,  label:'1080i59.94 — NTSC',    g:1, m:5  },
+  { res:'1920x1080', fps:'60',    i:true,  label:'1080i60',               g:1, m:5  },
+  { res:'720x576',   fps:'50',    i:true,  label:'576i50 — PAL SD',       g:1, m:17 },
+  { res:'720x480',   fps:'59.94', i:true,  label:'480i59.94 — NTSC SD',  g:1, m:6  },
+];
+
 // ── WebSocket ─────────────────────────────────────
 function connect() {
   ws = new WebSocket(WS_URL);
@@ -686,14 +717,6 @@ document.getElementById('bg-hex').addEventListener('input', () => {
   populateColourFields(rgbToHex(r, g, b));
 }));
 
-const BUILTIN_SWATCHES = [
-  { hex: '#000000', name: 'Black' },
-  { hex: '#00b140', name: 'BMD Green' },
-  { hex: '#ffffff', name: 'White' },
-  { hex: '#0000ff', name: 'Blue' },
-  { hex: '#ff0000', name: 'Red' },
-];
-
 function renderSwatches(customPresets) {
   const row = document.getElementById('swatch-row');
   row.innerHTML = '';
@@ -859,29 +882,6 @@ function updateLiveStatus(cfg) {
   else if (cfg.mode === 'color') summary = `colour · ${cfg.backgroundColor || ''}`;
   el.textContent = summary;
 }
-
-const MODES = [
-  { res:'1920x1080', fps:'23.98', i:false, label:'1080p23.98', g:1, m:32 },
-  { res:'1920x1080', fps:'24',    i:false, label:'1080p24',    g:1, m:32 },
-  { res:'1920x1080', fps:'25',    i:false, label:'1080p25',    g:1, m:33 },
-  { res:'1920x1080', fps:'29.97', i:false, label:'1080p29.97', g:1, m:34 },
-  { res:'1920x1080', fps:'30',    i:false, label:'1080p30',    g:1, m:34 },
-  { res:'1920x1080', fps:'50',    i:false, label:'1080p50',    g:1, m:31 },
-  { res:'1920x1080', fps:'59.94', i:false, label:'1080p59.94', g:1, m:16 },
-  { res:'1920x1080', fps:'60',    i:false, label:'1080p60',    g:1, m:16 },
-  { res:'1280x720',  fps:'25',    i:false, label:'720p25',     g:1, m:61 },
-  { res:'1280x720',  fps:'29.97', i:false, label:'720p29.97',  g:1, m:62 },
-  { res:'1280x720',  fps:'50',    i:false, label:'720p50',     g:1, m:19 },
-  { res:'1280x720',  fps:'59.94', i:false, label:'720p59.94',  g:1, m:47 },
-  { res:'1280x720',  fps:'60',    i:false, label:'720p60',     g:1, m:4  },
-  { res:'720x576',   fps:'50',    i:false, label:'576p50 — PAL SD',      g:1, m:18 },
-  { res:'720x480',   fps:'59.94', i:false, label:'480p59.94 — NTSC SD',  g:1, m:3  },
-  { res:'1920x1080', fps:'50',    i:true,  label:'1080i50',               g:1, m:20 },
-  { res:'1920x1080', fps:'59.94', i:true,  label:'1080i59.94 — NTSC',    g:1, m:5  },
-  { res:'1920x1080', fps:'60',    i:true,  label:'1080i60',               g:1, m:5  },
-  { res:'720x576',   fps:'50',    i:true,  label:'576i50 — PAL SD',       g:1, m:17 },
-  { res:'720x480',   fps:'59.94', i:true,  label:'480i59.94 — NTSC SD',  g:1, m:6  },
-];
 
 function buildOutputSelect() {
   const sel = document.getElementById('output-mode-select');
