@@ -722,7 +722,15 @@ function renderSwatches(customPresets) {
   highlightActiveSwatch(document.getElementById('bg-hex').value);
 }
 function renderPresets(presets) { /* Task 11 */ }
-function populateUrlHistory(history) { /* Task 10 */ }
+function populateUrlHistory(history) {
+  const dl = document.getElementById('url-history-list');
+  dl.innerHTML = '';
+  (history || []).forEach(url => {
+    const opt = document.createElement('option');
+    opt.value = url;
+    dl.appendChild(opt);
+  });
+}
 
 function updateLiveStatus(cfg) {
   const el = document.getElementById('live-content');
