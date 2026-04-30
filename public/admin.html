@@ -558,6 +558,7 @@ function send(msg) {
 }
 
 connect();
+buildOutputSelect();
 
 // Stubs — implemented in subsequent tasks
 function renderPreviewIframe(cfg) {
@@ -859,7 +860,106 @@ function updateLiveStatus(cfg) {
   el.textContent = summary;
 }
 
-function syncOutputSelect(cfg) { /* Task 12 */ }
+const MODES = [
+  { res:'1920x1080', fps:'23.98', i:false, label:'1080p23.98', g:1, m:32 },
+  { res:'1920x1080', fps:'24',    i:false, label:'1080p24',    g:1, m:32 },
+  { res:'1920x1080', fps:'25',    i:false, label:'1080p25',    g:1, m:33 },
+  { res:'1920x1080', fps:'29.97', i:false, label:'1080p29.97', g:1, m:34 },
+  { res:'1920x1080', fps:'30',    i:false, label:'1080p30',    g:1, m:34 },
+  { res:'1920x1080', fps:'50',    i:false, label:'1080p50',    g:1, m:31 },
+  { res:'1920x1080', fps:'59.94', i:false, label:'1080p59.94', g:1, m:16 },
+  { res:'1920x1080', fps:'60',    i:false, label:'1080p60',    g:1, m:16 },
+  { res:'1280x720',  fps:'25',    i:false, label:'720p25',     g:1, m:61 },
+  { res:'1280x720',  fps:'29.97', i:false, label:'720p29.97',  g:1, m:62 },
+  { res:'1280x720',  fps:'50',    i:false, label:'720p50',     g:1, m:19 },
+  { res:'1280x720',  fps:'59.94', i:false, label:'720p59.94',  g:1, m:47 },
+  { res:'1280x720',  fps:'60',    i:false, label:'720p60',     g:1, m:4  },
+  { res:'720x576',   fps:'50',    i:false, label:'576p50 — PAL SD',      g:1, m:18 },
+  { res:'720x480',   fps:'59.94', i:false, label:'480p59.94 — NTSC SD',  g:1, m:3  },
+  { res:'1920x1080', fps:'50',    i:true,  label:'1080i50',               g:1, m:20 },
+  { res:'1920x1080', fps:'59.94', i:true,  label:'1080i59.94 — NTSC',    g:1, m:5  },
+  { res:'1920x1080', fps:'60',    i:true,  label:'1080i60',               g:1, m:5  },
+  { res:'720x576',   fps:'50',    i:true,  label:'576i50 — PAL SD',       g:1, m:17 },
+  { res:'720x480',   fps:'59.94', i:true,  label:'480i59.94 — NTSC SD',  g:1, m:6  },
+];
+
+function buildOutputSelect() {
+  const sel = document.getElementById('output-mode-select');
+  const gProg = document.createElement('optgroup');
+  gProg.label = '— Progressive (apply instantly) —';
+  const gInt = document.createElement('optgroup');
+  gInt.label = '— Interlaced (requires reboot) —';
+  MODES.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = m.label;
+    (m.i ? gInt : gProg).appendChild(opt);
+  });
+  sel.appendChild(gProg);
+  sel.appendChild(gInt);
+}
+
+function syncOutputSelect(cfg) {
+  const idx = MODES.findIndex(m =>
+    m.res === cfg.resolution && m.fps === cfg.framerate && m.i === !!cfg.interlaced);
+  if (idx >= 0) document.getElementById('output-mode-select').value = idx;
+  updateApplyBtn();
+}
+
+function updateApplyBtn() {
+  const idx = parseInt(document.getElementById('output-mode-select').value);
+  const m = MODES[idx];
+  if (!m) return;
+  const btn = document.getElementById('apply-btn');
+  const note = document.getElementById('apply-note');
+  btn.textContent = m.i ? 'Apply & Reboot' : 'Apply instantly';
+  note.textContent = m.i ? 'Interlaced — Pi will reboot (~45s)' : '';
+}
+
+document.getElementById('output-mode-select').addEventListener('change', updateApplyBtn);
+
+async function applyResolution() {
+  const idx = parseInt(document.getElementById('output-mode-select').value);
+  const m = MODES[idx];
+  const btn = document.getElementById('apply-btn');
+  const note = document.getElementById('apply-note');
+  btn.disabled = true; btn.textContent = 'Applying…'; note.textContent = '';
+  try {
+    const r = await fetch('/api/resolution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolution: m.res, framerate: m.fps, interlaced: m.i, hdmiGroup: m.g, hdmiMode: m.m })
+    });
+    const data = await r.json();
+    if (data.requiresReboot) {
+      btn.textContent = 'Rebooting…';
+      note.textContent = 'Rebooting — reconnecting in ~45s';
+      await fetch('/api/reboot', { method: 'POST' });
+    } else {
+      btn.textContent = 'Applied ✓';
+      setTimeout(() => { btn.textContent = 'Apply instantly'; btn.disabled = false; }, 2000);
+    }
+  } catch (e) {
+    btn.textContent = 'Error — try again'; note.textContent = String(e); btn.disabled = false;
+  }
+}
+
+document.getElementById('apply-btn').addEventListener('click', applyResolution);
+
+async function systemAction(action) {
+  const note = document.getElementById('system-note');
+  document.getElementById('reboot-btn').disabled = true;
+  document.getElementById('shutdown-btn').disabled = true;
+  note.textContent = action === 'reboot' ? 'Rebooting — reconnecting in ~45s…' : 'Shutting down…';
+  try { await fetch(`/api/${action}`, { method: 'POST' }); } catch {}
+}
+
+document.getElementById('reboot-btn').addEventListener('click', () => {
+  if (confirm('Reboot the Pi?')) systemAction('reboot');
+});
+document.getElementById('shutdown-btn').addEventListener('click', () => {
+  if (confirm('Shut down the Pi?')) systemAction('shutdown');
+});
 function updateShowIdleBtn(showIdle) {
   document.getElementById('show-idle-btn').textContent =
     showIdle === false ? 'Show web UI URL' : 'Hide web UI URL';
