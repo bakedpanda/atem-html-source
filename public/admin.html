@@ -572,7 +572,7 @@ function connect() {
     } else if (msg.type === 'previewUpdate') {
       previewConfig = msg.config;
       renderPreviewIframe(previewConfig);
-      populateEditorFromPreview(previewConfig);
+      populateEditorFromPreview(previewConfig, { switchTab: false });
       if (msg.urlHistory) populateUrlHistory(msg.urlHistory);
     } else if (msg.type === 'programUpdate') {
       programConfig = msg.config;
@@ -637,13 +637,15 @@ function renderProgramIframe(cfg) {
   scaleMonitor('program-box', 'program-frame');
 }
 
-function populateEditorFromPreview(cfg) {
+function populateEditorFromPreview(cfg, { switchTab = true } = {}) {
   const mode = cfg.mode || 'color';
   const activeMode = ['html', 'url', 'image'].includes(mode) ? mode : 'html';
-  document.querySelectorAll('.mode-tab').forEach(t =>
-    t.classList.toggle('active', t.dataset.mode === activeMode));
-  document.querySelectorAll('.mode-panel').forEach(p =>
-    p.classList.toggle('active', p.id === 'panel-' + activeMode));
+  if (switchTab) {
+    document.querySelectorAll('.mode-tab').forEach(t =>
+      t.classList.toggle('active', t.dataset.mode === activeMode));
+    document.querySelectorAll('.mode-panel').forEach(p =>
+      p.classList.toggle('active', p.id === 'panel-' + activeMode));
+  }
   document.getElementById('html-editor').value = cfg.html || '';
   document.getElementById('css-editor').value = cfg.customCss || '';
   document.getElementById('url-input').value = cfg.url || '';
