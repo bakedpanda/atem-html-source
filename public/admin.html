@@ -1010,6 +1010,27 @@ document.querySelectorAll('.mode-tab').forEach(btn => {
     document.getElementById('panel-' + btn.dataset.mode).classList.add('active');
   });
 });
+
+const SECTION_DEFAULTS = { presets: true, bg: true, hdmi: false, system: false };
+
+function initSections() {
+  document.querySelectorAll('.section-toggle').forEach(btn => {
+    const key = btn.dataset.section;
+    const section = btn.closest('.ctrl-section');
+
+    // Restore saved state; fall back to default
+    const saved = localStorage.getItem('section-' + key);
+    const isOpen = saved !== null ? saved === 'true' : SECTION_DEFAULTS[key] !== false;
+    section.classList.toggle('open', isOpen);
+
+    btn.addEventListener('click', () => {
+      const nowOpen = section.classList.toggle('open');
+      localStorage.setItem('section-' + key, String(nowOpen));
+    });
+  });
+}
+
+initSections();
 </script>
 </body>
 </html>
