@@ -45,10 +45,16 @@
     letter-spacing: 0.05em;
   }
   #idle .url { font-size: 48px; color: rgba(255,255,255,0.85); }
+  #fade-overlay {
+    position: absolute; inset: 0; z-index: 100;
+    background: #000; opacity: 0; pointer-events: none;
+    transition: opacity 0ms linear;
+  }
 </style>
 </head>
 <body>
 <div id="stage">
+  <div id="fade-overlay"></div>
   <div id="canvas">
     <div id="bg"></div>
     <style id="user-css"></style>
@@ -88,7 +94,7 @@ function scaleCanvas() {
   canvas.style.transform = `scale(${scale})`;
 }
 
-function applyConfig(cfg) {
+function _applyConfig(cfg) {
   document.getElementById('bg').style.background = cfg.backgroundColor || '#000';
   document.getElementById('user-css').textContent = cfg.customCss || '';
 
@@ -96,8 +102,8 @@ function applyConfig(cfg) {
   const htmlFrame = document.getElementById('html-frame');
   const imgDiv = document.getElementById('image-content');
   const img = document.getElementById('image-el');
-
   const idleDiv = document.getElementById('idle');
+
   frame.style.display = 'none';
   htmlFrame.style.display = 'none';
   imgDiv.style.display = 'none';
@@ -122,6 +128,18 @@ function applyConfig(cfg) {
   }
 }
 
+function applyConfig(cfg, fadeDuration) {
+  if (!fadeDuration) { _applyConfig(cfg); return; }
+  const overlay = document.getElementById('fade-overlay');
+  const half = fadeDuration / 2;
+  overlay.style.transition = `opacity ${half}ms linear`;
+  overlay.style.opacity = '1';
+  setTimeout(() => {
+    _applyConfig(cfg);
+    overlay.style.opacity = '0';
+  }, half);
+}
+
 let wsEverConnected = false;
 function connect() {
   ws = new WebSocket(WS_URL);
@@ -132,7 +150,7 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.type === 'programUpdate') applyConfig(msg.config);
+      if (msg.type === 'programUpdate') applyConfig(msg.config, msg.fadeDuration);
       if (msg.type === 'init') applyConfig(msg.programConfig);
     } catch {}
   };

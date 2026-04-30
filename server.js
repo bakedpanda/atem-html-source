@@ -92,7 +92,8 @@ wss.on('connection', (ws) => {
       } else if (msg.type === 'cut') {
         programConfig = { ...programConfig, ...pickContent(previewConfig) };
         saveConfig(programConfig);
-        broadcast({ type: 'programUpdate', config: programConfig });
+        const fade = msg.fadeDuration > 0 ? { fadeDuration: msg.fadeDuration } : {};
+        broadcast({ type: 'programUpdate', config: programConfig, ...fade });
 
       } else if (msg.type === 'clearPreview') {
         previewConfig = { ...previewConfig, mode: 'color', html: '', url: '', imageUrl: '', imageFit: 'cover' };
