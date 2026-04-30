@@ -95,9 +95,7 @@ wss.on('connection', (ws) => {
         broadcast({ type: 'programUpdate', config: programConfig });
 
       } else if (msg.type === 'clearPreview') {
-        const reset = {};
-        CONTENT_FIELDS.forEach(k => { reset[k] = DEFAULT_CONFIG[k]; });
-        previewConfig = { ...previewConfig, ...reset };
+        previewConfig = { ...previewConfig, mode: 'color', html: '', url: '', imageUrl: '', imageFit: 'cover' };
         broadcast({ type: 'previewUpdate', config: previewConfig, urlHistory: programConfig.urlHistory });
 
       } else if (msg.type === 'updateGlobal') {

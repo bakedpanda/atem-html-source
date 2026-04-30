@@ -572,6 +572,7 @@ function connect() {
     } else if (msg.type === 'previewUpdate') {
       previewConfig = msg.config;
       renderPreviewIframe(previewConfig);
+      populateEditorFromPreview(previewConfig);
       if (msg.urlHistory) populateUrlHistory(msg.urlHistory);
     } else if (msg.type === 'programUpdate') {
       programConfig = msg.config;
