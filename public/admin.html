@@ -721,7 +721,124 @@ function renderSwatches(customPresets) {
   row.appendChild(addBtn);
   highlightActiveSwatch(document.getElementById('bg-hex').value);
 }
-function renderPresets(presets) { /* Task 11 */ }
+const MODE_ICON = { html: '‹›', url: '🔗', image: '🖼', color: '🎨' };
+
+function renderPresets(presets) {
+  const list = document.getElementById('preset-list');
+  list.innerHTML = '';
+  (presets || []).forEach((preset, idx) => {
+    const item = document.createElement('div');
+    item.className = 'preset-item';
+
+    const icon = document.createElement('span');
+    icon.className = 'preset-icon';
+    icon.textContent = MODE_ICON[preset.content?.mode] || '📋';
+
+    const name = document.createElement('span');
+    name.className = 'preset-name';
+    name.textContent = preset.name;
+
+    const tags = document.createElement('div');
+    tags.className = 'preset-tags';
+    if (preset.fields.includes('content')) {
+      const t = document.createElement('span');
+      t.className = 'preset-tag';
+      t.textContent = preset.content?.mode || 'content';
+      tags.appendChild(t);
+    }
+    if (preset.fields.includes('background')) {
+      const t = document.createElement('span');
+      t.className = 'preset-tag';
+      t.textContent = 'bg';
+      tags.appendChild(t);
+    }
+    if (preset.fields.includes('css')) {
+      const t = document.createElement('span');
+      t.className = 'preset-tag';
+      t.textContent = 'css';
+      tags.appendChild(t);
+    }
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'preset-load';
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => loadPreset(preset));
+
+    const del = document.createElement('span');
+    del.className = 'preset-delete';
+    del.textContent = '×';
+    del.addEventListener('click', () => {
+      const updated = (programConfig.contentPresets || []).filter((_, i) => i !== idx);
+      send({ type: 'updateGlobal', config: { contentPresets: updated } });
+    });
+
+    item.appendChild(icon);
+    item.appendChild(name);
+    item.appendChild(tags);
+    item.appendChild(loadBtn);
+    item.appendChild(del);
+    list.appendChild(item);
+  });
+}
+
+function loadPreset(preset) {
+  const partial = {};
+  if (preset.fields.includes('content') && preset.content) {
+    Object.assign(partial, preset.content);
+  }
+  if (preset.fields.includes('background') && preset.background) {
+    partial.backgroundColor = preset.background;
+  }
+  if (preset.fields.includes('css') && preset.css !== undefined) {
+    partial.customCss = preset.css;
+  }
+  send({ type: 'updatePreview', config: partial });
+  populateEditorFromPreview({ ...previewConfig, ...partial });
+  if (partial.backgroundColor) populateColourFields(partial.backgroundColor);
+}
+
+document.getElementById('save-preset-btn').addEventListener('click', () => {
+  document.getElementById('preset-form').classList.add('open');
+  document.getElementById('preset-name').focus();
+});
+
+document.getElementById('preset-save-cancel').addEventListener('click', () => {
+  document.getElementById('preset-form').classList.remove('open');
+  document.getElementById('preset-name').value = '';
+});
+
+document.getElementById('preset-save-confirm').addEventListener('click', () => {
+  const name = document.getElementById('preset-name').value.trim();
+  if (!name) return;
+
+  const fields = [];
+  const preset = { name, fields };
+
+  if (document.getElementById('preset-chk-content').checked) {
+    fields.push('content');
+    const cfg = collectPreviewConfig();
+    preset.content = { mode: cfg.mode, html: cfg.html, url: cfg.url, imageUrl: cfg.imageUrl, imageFit: cfg.imageFit };
+  }
+  if (document.getElementById('preset-chk-bg').checked) {
+    fields.push('background');
+    preset.background = document.getElementById('bg-hex').value;
+  }
+  if (document.getElementById('preset-chk-css').checked) {
+    fields.push('css');
+    preset.css = document.getElementById('css-editor').value;
+  }
+
+  if (fields.length === 0) return;
+
+  const updated = [...(programConfig.contentPresets || []), preset];
+  send({ type: 'updateGlobal', config: { contentPresets: updated } });
+
+  document.getElementById('preset-form').classList.remove('open');
+  document.getElementById('preset-name').value = '';
+  document.getElementById('preset-chk-content').checked = true;
+  document.getElementById('preset-chk-bg').checked = false;
+  document.getElementById('preset-chk-css').checked = false;
+});
 function populateUrlHistory(history) {
   const dl = document.getElementById('url-history-list');
   dl.innerHTML = '';
