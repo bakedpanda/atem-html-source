@@ -83,6 +83,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
   position: absolute; top: 0; left: 0;
   width: 1920px; height: 1080px;
   border: none;
+  background: transparent;
   transform-origin: top left;
   pointer-events: none;
 }
@@ -631,6 +632,8 @@ function buildConfigDoc(cfg) {
 }
 
 function applyConfigToIframe(cfg, iframe) {
+  const box = iframe.closest('.monitor-box');
+  if (box) box.style.background = cfg.backgroundColor || '#000000';
   if (cfg.mode === 'url' && cfg.url) {
     if (iframe.src !== cfg.url) iframe.src = cfg.url;
     iframe.removeAttribute('srcdoc');
