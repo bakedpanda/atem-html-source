@@ -67,6 +67,7 @@
     background: #000; opacity: 0; pointer-events: none;
     transition: opacity 0ms linear;
   }
+  #masks { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -85,6 +86,7 @@
         <div class="url" id="idle-url"></div>
       </div>
     </div>
+    <div id="masks"></div>
   </div>
 </div>
 
@@ -127,6 +129,19 @@ function preloadForDisplay(cfg) {
 function _applyConfig(cfg) {
   document.getElementById('bg').style.background = cfg.backgroundColor || '#000';
   document.getElementById('user-css').textContent = cfg.customCss || '';
+
+  const masksEl = document.getElementById('masks');
+  masksEl.innerHTML = '';
+  for (const mask of cfg.masks ?? []) {
+    const div = document.createElement('div');
+    div.style.position = 'absolute';
+    div.style.left   = (mask.x      * 1920) + 'px';
+    div.style.top    = (mask.y      * 1080) + 'px';
+    div.style.width  = (mask.width  * 1920) + 'px';
+    div.style.height = (mask.height * 1080) + 'px';
+    div.style.background = mask.color ?? cfg.backgroundColor ?? '#000';
+    masksEl.appendChild(div);
+  }
 
   const frameA = document.getElementById('url-frame-a');
   const frameB = document.getElementById('url-frame-b');
