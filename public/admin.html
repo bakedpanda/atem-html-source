@@ -355,6 +355,46 @@ select { padding: 4px 6px; height: 26px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
+/* ── Masks panel ────────────────────────────────────── */
+.add-mask-btn {
+  background: transparent; border: 1px dashed var(--border); color: var(--text-muted);
+  border-radius: 3px; font-family: var(--font); font-size: 9px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 5px; width: 100%; text-align: center; cursor: pointer; margin-top: 4px;
+}
+.add-mask-btn:hover { border-color: #444; }
+.masks-empty {
+  font-size: 10px; color: var(--text-muted); text-align: center;
+  padding: 10px 0 6px; display: none;
+}
+.mask-card {
+  background: #111; border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px; margin-bottom: 6px;
+}
+.mask-card-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.mask-card-title { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-sec); }
+.mask-remove { color: #444; font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; }
+.mask-remove:hover { color: var(--danger); }
+.mask-row {
+  display: grid; grid-template-columns: 22px 1fr 48px;
+  align-items: center; gap: 5px; margin-bottom: 4px;
+}
+.mask-row-label { font-size: 9px; color: var(--text-muted); text-align: right; }
+.mask-slider { width: 100%; accent-color: var(--accent); cursor: pointer; }
+.mask-num { width: 100%; font-size: 10px; text-align: center; padding: 2px 4px; }
+.mask-color-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.mask-color-picker {
+  width: 28px; height: 22px; padding: 1px; border: 1px solid var(--border);
+  border-radius: 3px; cursor: pointer; background: none; flex-shrink: 0;
+}
+.mask-color-picker:disabled { opacity: 0.4; cursor: default; }
+.mask-color-label { font-size: 9px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.mask-outline-row { margin-top: 5px; }
+.mask-outline-label { font-size: 9px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.mask-overlay { position: absolute; pointer-events: none; z-index: 5; }
+
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 620px) {
   .bus-row { grid-template-columns: 1fr 90px 1fr; }
@@ -425,6 +465,7 @@ select { padding: 4px 6px; height: 26px; }
           <button class="mode-tab active" data-mode="html">HTML</button>
           <button class="mode-tab" data-mode="url">URL</button>
           <button class="mode-tab" data-mode="image">Image</button>
+          <button class="mode-tab" data-mode="masks">Masks</button>
         </div>
         <button class="clear-btn" id="clear-btn">Clear preview</button>
       </div>
@@ -444,6 +485,12 @@ select { padding: 4px 6px; height: 26px; }
           <option value="fill">Fill — stretch to frame</option>
           <option value="none">Actual size — no scaling</option>
         </select>
+      </div>
+
+      <div class="mode-panel" id="panel-masks">
+        <div id="masks-list"></div>
+        <p class="masks-empty" id="masks-empty">No masks — click below to add one.</p>
+        <button class="add-mask-btn" id="add-mask-btn">+ Add mask</button>
       </div>
 
       <div class="css-section">
