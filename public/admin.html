@@ -711,12 +711,12 @@ function buildMaskCard(mask, index) {
   `;
 
   // Slider ↔ number input sync
-  [['x', w], ['y', h], ['w', w], ['h', h]].forEach(([axis, max]) => {
+  [['x', 0, w], ['y', 0, h], ['w', 1, w], ['h', 1, h]].forEach(([axis, min, max]) => {
     const slider = card.querySelector(`.mask-${axis}-slider`);
     const num    = card.querySelector(`.mask-${axis}-num`);
     slider.addEventListener('input', () => { num.value = slider.value; onMaskChange(); });
     num.addEventListener('input', () => {
-      const v = Math.max(0, Math.min(max, parseFloat(num.value) || 0));
+      const v = Math.max(min, Math.min(max, parseFloat(num.value) || min));
       num.value = v; slider.value = v; onMaskChange();
     });
   });
