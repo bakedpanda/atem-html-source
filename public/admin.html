@@ -589,6 +589,177 @@ let ws;
 let previewConfig = {};
 let programConfig = {};
 
+let maskIdSeq = 0;
+function newMaskId() { return 'm' + Date.now() + (++maskIdSeq); }
+
+function getOutputDimensions() {
+  const res = (programConfig.resolution || '1920x1080').split('x');
+  return { w: parseInt(res[0]) || 1920, h: parseInt(res[1]) || 1080 };
+}
+
+function getMaskOutlineStates() {
+  const states = {};
+  document.querySelectorAll('.mask-card').forEach(card => {
+    const id = card.dataset.maskId;
+    const chk = card.querySelector('.mask-outline-chk');
+    if (id && chk) states[id] = chk.checked;
+  });
+  return states;
+}
+
+function renderMaskOverlays(cfg, boxId, isPreview) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  box.querySelectorAll('.mask-overlay').forEach(el => el.remove());
+  const bw = box.clientWidth;
+  const bh = box.clientHeight;
+  const masks = cfg.masks || [];
+  const outlines = isPreview ? getMaskOutlineStates() : {};
+  masks.forEach(mask => {
+    const div = document.createElement('div');
+    div.className = 'mask-overlay';
+    div.style.left   = (mask.x      * bw) + 'px';
+    div.style.top    = (mask.y      * bh) + 'px';
+    div.style.width  = (mask.width  * bw) + 'px';
+    div.style.height = (mask.height * bh) + 'px';
+    div.style.background = mask.color ?? cfg.backgroundColor ?? '#000';
+    if (isPreview && outlines[mask.id]) {
+      div.style.outline = '2px dashed rgba(255,255,255,0.75)';
+      div.style.outlineOffset = '-2px';
+    }
+    box.appendChild(div);
+  });
+}
+
+function collectMasks() {
+  const { w, h } = getOutputDimensions();
+  const masks = [];
+  document.querySelectorAll('.mask-card').forEach(card => {
+    const x      = (parseFloat(card.querySelector('.mask-x-num').value) || 0) / w;
+    const y      = (parseFloat(card.querySelector('.mask-y-num').value) || 0) / h;
+    const width  = (parseFloat(card.querySelector('.mask-w-num').value) || 1) / w;
+    const height = (parseFloat(card.querySelector('.mask-h-num').value) || 1) / h;
+    const usesBg = card.querySelector('.mask-use-bg').checked;
+    const color  = usesBg ? null : card.querySelector('.mask-color-picker').value;
+    masks.push({
+      id:     card.dataset.maskId,
+      x:      Math.max(0, Math.min(1, x)),
+      y:      Math.max(0, Math.min(1, y)),
+      width:  Math.max(0.0005, Math.min(1, width)),
+      height: Math.max(0.0005, Math.min(1, height)),
+      color,
+    });
+  });
+  return masks;
+}
+
+function onMaskChange() {
+  const cfg = collectPreviewConfig();
+  renderMaskOverlays(cfg, 'preview-box', true);
+  send({ type: 'updatePreview', config: cfg });
+}
+
+function buildMaskCard(mask, index) {
+  const { w, h } = getOutputDimensions();
+  const xPx = Math.round((mask.x      || 0)   * w);
+  const yPx = Math.round((mask.y      || 0)   * h);
+  const wPx = Math.round((mask.width  || 0.1) * w);
+  const hPx = Math.round((mask.height || 0.1) * h);
+  const colorVal = mask.color || '#000000';
+  const usesBg   = mask.color === null || mask.color === undefined;
+
+  const card = document.createElement('div');
+  card.className = 'mask-card';
+  card.dataset.maskId = mask.id;
+
+  card.innerHTML = `
+    <div class="mask-card-header">
+      <span class="mask-card-title">Mask ${index + 1}</span>
+      <span class="mask-remove" title="Remove mask">×</span>
+    </div>
+    <div class="mask-row">
+      <span class="mask-row-label">X</span>
+      <input type="range"  class="mask-slider mask-x-slider" min="0" max="${w}" value="${xPx}">
+      <input type="number" class="mask-num mask-x-num"       min="0" max="${w}" value="${xPx}">
+    </div>
+    <div class="mask-row">
+      <span class="mask-row-label">Y</span>
+      <input type="range"  class="mask-slider mask-y-slider" min="0" max="${h}" value="${yPx}">
+      <input type="number" class="mask-num mask-y-num"       min="0" max="${h}" value="${yPx}">
+    </div>
+    <div class="mask-row">
+      <span class="mask-row-label">W</span>
+      <input type="range"  class="mask-slider mask-w-slider" min="1" max="${w}" value="${wPx}">
+      <input type="number" class="mask-num mask-w-num"       min="1" max="${w}" value="${wPx}">
+    </div>
+    <div class="mask-row">
+      <span class="mask-row-label">H</span>
+      <input type="range"  class="mask-slider mask-h-slider" min="1" max="${h}" value="${hPx}">
+      <input type="number" class="mask-num mask-h-num"       min="1" max="${h}" value="${hPx}">
+    </div>
+    <div class="mask-color-row">
+      <input type="color" class="mask-color-picker" value="${colorVal}" ${usesBg ? 'disabled' : ''}>
+      <label class="mask-color-label">
+        <input type="checkbox" class="mask-use-bg" ${usesBg ? 'checked' : ''}> Use background colour
+      </label>
+    </div>
+    <div class="mask-outline-row">
+      <label class="mask-outline-label">
+        <input type="checkbox" class="mask-outline-chk"> Show outline in preview
+      </label>
+    </div>
+  `;
+
+  // Slider ↔ number input sync
+  [['x', w], ['y', h], ['w', w], ['h', h]].forEach(([axis, max]) => {
+    const slider = card.querySelector(`.mask-${axis}-slider`);
+    const num    = card.querySelector(`.mask-${axis}-num`);
+    slider.addEventListener('input', () => { num.value = slider.value; onMaskChange(); });
+    num.addEventListener('input', () => {
+      const v = Math.max(0, Math.min(max, parseFloat(num.value) || 0));
+      num.value = v; slider.value = v; onMaskChange();
+    });
+  });
+
+  // Use-background-colour checkbox
+  const useBgChk    = card.querySelector('.mask-use-bg');
+  const colorPicker = card.querySelector('.mask-color-picker');
+  useBgChk.addEventListener('change', () => {
+    colorPicker.disabled = useBgChk.checked;
+    if (useBgChk.checked) colorPicker.value = document.getElementById('bg-hex').value || '#000000';
+    onMaskChange();
+  });
+  colorPicker.addEventListener('input', onMaskChange);
+
+  // Outline toggle
+  card.querySelector('.mask-outline-chk').addEventListener('change', onMaskChange);
+
+  // Remove
+  card.querySelector('.mask-remove').addEventListener('click', () => {
+    card.remove();
+    updateMaskCardTitles();
+    onMaskChange();
+  });
+
+  return card;
+}
+
+function updateMaskCardTitles() {
+  document.querySelectorAll('.mask-card').forEach((card, i) => {
+    card.querySelector('.mask-card-title').textContent = 'Mask ' + (i + 1);
+  });
+  const empty = document.getElementById('masks-empty');
+  if (empty) empty.style.display = document.querySelectorAll('.mask-card').length === 0 ? 'block' : 'none';
+}
+
+function renderMasksPanel(masks) {
+  const list = document.getElementById('masks-list');
+  if (!list) return;
+  list.innerHTML = '';
+  (masks || []).forEach((mask, i) => list.appendChild(buildMaskCard(mask, i)));
+  updateMaskCardTitles();
+}
+
 const BUILTIN_SWATCHES = [
   { hex: '#000000', name: 'Black' },
   { hex: '#00b140', name: 'BMD Green' },
@@ -1126,6 +1297,14 @@ function initSections() {
 }
 
 initSections();
+
+document.getElementById('add-mask-btn').addEventListener('click', () => {
+  const list = document.getElementById('masks-list');
+  const count = list.querySelectorAll('.mask-card').length;
+  list.appendChild(buildMaskCard({ id: newMaskId(), x: 0, y: 0, width: 0.2, height: 0.2, color: null }, count));
+  updateMaskCardTitles();
+  onMaskChange();
+});
 </script>
 </body>
 </html>
