@@ -852,6 +852,7 @@ buildOutputSelect();
 function renderPreviewIframe(cfg) {
   applyConfigToIframe(cfg, document.getElementById('preview-frame'));
   scaleMonitor('preview-box', 'preview-frame');
+  renderMaskOverlays(cfg, 'preview-box', true);
 }
 function buildConfigDoc(cfg) {
   if (cfg.mode === 'url' && cfg.url) {
@@ -888,11 +889,14 @@ function scaleMonitor(boxId, frameId) {
 function scaleAllMonitors() {
   scaleMonitor('preview-box', 'preview-frame');
   scaleMonitor('program-box', 'program-frame');
+  renderMaskOverlays(previewConfig, 'preview-box', true);
+  renderMaskOverlays(programConfig, 'program-box', false);
 }
 
 function renderProgramIframe(cfg) {
   applyConfigToIframe(cfg, document.getElementById('program-frame'));
   scaleMonitor('program-box', 'program-frame');
+  renderMaskOverlays(cfg, 'program-box', false);
 }
 
 function populateEditorFromPreview(cfg, { switchTab = true } = {}) {
@@ -909,6 +913,7 @@ function populateEditorFromPreview(cfg, { switchTab = true } = {}) {
   document.getElementById('url-input').value = cfg.url || '';
   document.getElementById('image-url').value = cfg.imageUrl || '';
   document.getElementById('image-fit').value = cfg.imageFit || 'cover';
+  renderMasksPanel(cfg.masks || []);
 }
 function rgbToHex(r, g, b) {
   return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
@@ -1233,15 +1238,19 @@ document.getElementById('show-idle-btn').addEventListener('click', () => {
 window.addEventListener('resize', scaleAllMonitors);
 
 function collectPreviewConfig() {
-  const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'color';
+  const activeTabMode = document.querySelector('.mode-tab.active')?.dataset.mode;
+  const mode = (activeTabMode && activeTabMode !== 'masks')
+    ? activeTabMode
+    : (previewConfig.mode || 'color');
   return {
     mode,
-    html: document.getElementById('html-editor').value,
-    customCss: document.getElementById('css-editor').value,
-    url: document.getElementById('url-input').value,
-    imageUrl: document.getElementById('image-url').value,
-    imageFit: document.getElementById('image-fit').value,
+    html:            document.getElementById('html-editor').value,
+    customCss:       document.getElementById('css-editor').value,
+    url:             document.getElementById('url-input').value,
+    imageUrl:        document.getElementById('image-url').value,
+    imageFit:        document.getElementById('image-fit').value,
     backgroundColor: document.getElementById('bg-hex').value || '#000000',
+    masks:           collectMasks(),
   };
 }
 
