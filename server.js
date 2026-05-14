@@ -43,6 +43,7 @@ const DEFAULT_CONFIG = {
   urlHistory: [],
   colourPresets: [],
   contentPresets: [],
+  masks: [],
 };
 
 function loadConfig() {
@@ -64,7 +65,7 @@ function saveConfig(config) {
   }
 }
 
-const CONTENT_FIELDS = ['mode', 'html', 'customCss', 'url', 'imageUrl', 'imageFit', 'backgroundColor'];
+const CONTENT_FIELDS = ['mode', 'html', 'customCss', 'url', 'imageUrl', 'imageFit', 'backgroundColor', 'masks'];
 
 function pickContent(cfg) {
   const out = {};
